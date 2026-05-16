@@ -1,0 +1,10 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://github.com/iconmaster5326/buildblazer/schema/systems/generic/character.yaml
+title: (Generic) Character
+description: A top-level group of features.
+allOf:
+  - $ref: https://github.com/iconmaster5326/buildblazer/schema/entity.yaml
+  - type: object
+    properties:
+      type:
+        const: character

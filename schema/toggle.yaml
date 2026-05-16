@@ -1,0 +1,10 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://github.com/iconmaster5326/buildblazer/schema/toggle.yaml
+title: Toggle
+description: A Buildblazer toggle - A checkbox on the character sheet that can enable/disable modifiers.
+allOf:
+  - $ref: https://github.com/iconmaster5326/buildblazer/schema/entity.yaml
+  - type: object
+    properties:
+      type:
+        const: toggle

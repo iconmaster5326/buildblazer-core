@@ -1,0 +1,15 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://github.com/iconmaster5326/buildblazer/schema/statistic.yaml
+title: Statistic
+description: A Buildblazer statistic - A number with a calculated value.
+allOf:
+  - $ref: https://github.com/iconmaster5326/buildblazer/schema/entity.yaml
+  - type: object
+    required:
+      - base
+    properties:
+      type:
+        const: stat
+      base:
+        description: The base value expression of this statistic.
+        type: string

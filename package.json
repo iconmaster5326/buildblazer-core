@@ -1,0 +1,27 @@
+{
+  "name": "@buildblazer/core",
+  "version": "0.1.0",
+  "description": "A library for the handling of Buildblazer data.",
+  "license": "MIT",
+  "author": "iconmaster",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "npx vite",
+    "build": "npx vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "npx vitest",
+    "preview": "npx vite preview"
+  },
+  "devDependencies": {
+    "@types/node": "^25.8.0",
+    "tsx": "^4.22.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.13",
+    "vitest": "^4.1.6"
+  },
+  "dependencies": {
+    "ohm-js": "^17.5.0",
+    "uuid": "^14.0.0"
+  }
+}

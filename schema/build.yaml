@@ -1,0 +1,124 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://github.com/iconmaster5326/buildblazer/schema/build.yaml
+title: Build
+description: A Buildblazer "build" - a plan to alter an entity by a set of discrete milestones.
+type: object
+required:
+  - id
+  - name
+  - system
+  - systemVersion
+  - milestones
+  - sheets
+properties:
+  id:
+    description: The UUID of the resulting entity.
+    type: string
+    format: uuid
+  name:
+    description: The human-readable name of the resulting entity.
+    type: string
+  system:
+    description: The system this build was made for.
+    type: string
+  systemVersion:
+    description: The version of the system this build was last made in.
+    type: integer
+  milestones:
+    description: The milestones in this build. In many systems, this is by level, but it can be by other things as well.
+    type: array
+    items:
+      title: Milestone
+      description: A discrete point at which a build gains features.
+      type: object
+      required:
+        - name
+        - changes
+      properties:
+        name:
+          description: The name of this milestone.
+          type: string
+        changes:
+          description: What this build alters at this milestone.
+          type: array
+          items:
+            title: Change
+            description: Either the initial state of an entity, or something a build can alter at a certain milestone.
+            type: object
+            required:
+              - type
+              - subject
+              - property
+              - change
+            properties:
+              type:
+                description: The type of change.
+                enum:
+                  - add
+                  - remove
+                  - overwrite
+              subject:
+                description: The UUID of the entity to alter.
+                type: string
+                format: uuid
+              property:
+                description: The name of the property to alter.
+                type: string
+              change:
+                description: The payload data. For "remove", the UUID of the entity to remove. For others, the full value to set.
+  sheets:
+    description: The sheets for this character.
+    type: array
+    items:
+      title: Sheet
+      description: A build at a given milestone and state.
+      type: object
+      required:
+        - milestone
+        - counters
+        - toggles
+      properties:
+        name:
+          description: The name of this particular sheet, if build/milestone isn't enough.
+          oneOf:
+            - type: "null"
+            - type: string
+        milestone:
+          description: The milestone this sheet is at.
+          type: string
+        counters:
+          description: The current value of all counters.
+          type: array
+          items:
+            title: Counter Value
+            description: The current value of a counter.
+            type: object
+            required:
+              - counter
+              - value
+            properties:
+              counter:
+                description: The UUID of the counter.
+                type: string
+                format: uuid
+              value:
+                description: The value of the counter.
+                type: number
+        toggles:
+          description: The current value of all toggles.
+          type: array
+          items:
+            title: Toggle Value
+            description: The current value of a toggle.
+            type: object
+            required:
+              - toggle
+              - value
+            properties:
+              toggle:
+                description: The UUID of the toggle.
+                type: string
+                format: uuid
+              value:
+                description: The value of the toggle.
+                type: boolean

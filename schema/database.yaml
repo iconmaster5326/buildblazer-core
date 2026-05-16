@@ -1,0 +1,37 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://github.com/iconmaster5326/buildblazer/schema/database.yaml
+title: Database
+description: A Buildblazer database - a portable listing of entities that can be copied into builds.
+required:
+  - id
+  - system
+  - systemVersion
+  - name
+  - description
+  - version
+  - entries
+properties:
+  id:
+    description: The UUID of this database.
+    type: string
+    format: uuid
+  system:
+    description: The system this DB was made for.
+    type: string
+  systemVersion:
+    description: The version of the system this DB was last made in.
+    type: integer
+  name:
+    description: The human-readable name of this database.
+    type: string
+  description:
+    description: The human-readable description of this database.
+    type: string
+  version:
+    description: An auto-incrementing version number of this database.
+    type: integer
+  entries:
+    description: All the entities in this database.
+    type: array
+    items:
+      $ref: https://github.com/iconmaster5326/buildblazer/schema/entity.yaml

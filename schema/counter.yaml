@@ -1,0 +1,30 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://github.com/iconmaster5326/buildblazer/schema/counter.yaml
+title: Counter
+description: A Buildblazer counter - A number that goes up and down outside of buildmaking.
+allOf:
+  - $ref: https://github.com/iconmaster5326/buildblazer/schema/entity.yaml
+  - type: object
+    required:
+      - defaultsTo
+    properties:
+      type:
+        const: counter
+      defaultsTo:
+        description: The default value of the value. An expression.
+        type: string
+      min:
+        description: The lower bound of the value, if applicable. An expression.
+        oneOf:
+          - type: "null"
+          - type: string
+      max:
+        description: The upper bound of the value, if applicable. An expression.
+        oneOf:
+          - type: "null"
+          - type: string
+      resetsOn:
+        description: A reset period string, if applicable.
+        oneOf:
+          - type: "null"
+          - type: string

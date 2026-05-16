@@ -1,0 +1,55 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://github.com/iconmaster5326/buildblazer/schema/entity.yaml
+title: Entity
+description: A base Buildblazer entity. Users can define, copy, and have these manipulated.
+type: object
+required:
+  - id
+  - type
+properties:
+  id:
+    description: The UUID of this entity.
+    type: string
+    format: uuid
+  type:
+    description: The classification of this entity.
+    type: string
+  name:
+    description: The human-readable name of this entity.
+    oneOf:
+      - type: "null"
+      - type: string
+  varName:
+    description: The short-hand, variable name of this entity.
+    oneOf:
+      - type: "null"
+      - type: string
+  children:
+    description: Any child entities.
+    oneOf:
+      - type: "null"
+      - type: array
+        items:
+          $ref: https://github.com/iconmaster5326/buildblazer/schema/entity.yaml
+  instanceOf:
+    description: The database this entity was created from.
+    oneOf:
+      - type: "null"
+      - type: object
+        required:
+          - database
+          - entry
+        properties:
+          database:
+            description: The UUID of the database.
+            type: string
+            format: uuid
+          version:
+            description: The version of the database at time of instantiation. Null if auto-update has been disabled.
+            oneOf:
+              - type: "null"
+              - type: integer
+          entry:
+            description: The UUID of the database entry that this was instantiated from.
+            type: string
+            format: uuid
