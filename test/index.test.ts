@@ -4,6 +4,7 @@ import * as uuid from "uuid";
 import * as build from "../src/build";
 import * as expressions from "../src/expressions";
 import * as entity from "../src/entity";
+import * as stat from "../src/stat";
 
 describe('expressions', () => {
   test('number', () => {
@@ -27,7 +28,7 @@ describe('expressions', () => {
 const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 class TestEntity extends entity.Entity {
-  typeString(): string {
+  entityType(): string {
     return "test";
   }
 }
@@ -193,5 +194,39 @@ describe('builds', () => {
     expect(e2.name).toBe("Test");
     expect(e2).toHaveProperty("x");
     expect((e2 as any).x).toBe(3);
+  });
+});
+
+describe('stats', () => {
+  test('create blank', () => {
+    const s = new stat.Statistic("5326");
+
+    expect(s.entityType()).toBe("stat");
+    expect(s.base).toBe("5326");
+  });
+
+  test('from JSON', () => {
+    const id = uuid.v4();
+    const s = entity.Entity.fromJSON({
+      id: id,
+      name: "Test",
+      type: "stat",
+      base: "5326",
+    });
+
+    expect(s.id).toBe(id);
+    expect(s.name).toBe("Test");
+    expect(s.entityType()).toBe("stat");
+    expect(s).toBeInstanceOf(stat.Statistic);
+    expect((s as stat.Statistic).base).toBe("5326");
+  });
+
+  test('to JSON', () => {
+    const s = new stat.Statistic("5326");
+    const j: any = s.toJSON();
+
+    expect(j.id).toBe(s.id);
+    expect(j.type).toBe("stat");
+    expect(j.base).toBe("5326");
   });
 });

@@ -31,11 +31,12 @@ export abstract class Entity {
         this.instanceOf = options.instanceOf;
     }
 
-    abstract typeString(): string;
+    abstract entityType(): string;
 
     toJSON(): object {
         return {
             id: this.id,
+            type: this.entityType(),
             ...(this.name ? {name: this.name} : {}),
             ...(this.varName ? {varName: this.varName} : {}),
             ...(this.children ? {children: this.children.map(x => x.toJSON())} : {}),
