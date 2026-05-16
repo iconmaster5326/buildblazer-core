@@ -2,28 +2,10 @@ import { describe, test, expect } from "vitest";
 import * as uuid from "uuid";
 
 import * as build from "../src/build";
-import * as expressions from "../src/expressions";
 import * as entity from "../src/entity";
+import * as expr from "../src/expr";
+import * as mod from "../src/mod";
 import * as stat from "../src/stat";
-
-describe('expressions', () => {
-  test('number', () => {
-    const expr = expressions.parseExpression("1");
-    expect(expr).toBeInstanceOf(expressions.ExprNumber);
-    expect((expr as expressions.ExprNumber).value).toBe(1);
-  });
-  test('add', () => {
-    const expr = expressions.parseExpression("1+2");
-    expect(expr).toBeInstanceOf(expressions.ExprBin);
-    expect((expr as expressions.ExprBin).op).toBe(expressions.ExprBinOp.ADD);
-
-    expect((expr as expressions.ExprBin).lhs).toBeInstanceOf(expressions.ExprNumber);
-    expect(((expr as expressions.ExprBin).lhs as expressions.ExprNumber).value).toBe(1);
-
-    expect((expr as expressions.ExprBin).rhs).toBeInstanceOf(expressions.ExprNumber);
-    expect(((expr as expressions.ExprBin).rhs as expressions.ExprNumber).value).toBe(2);
-  });
-});
 
 const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
@@ -32,6 +14,48 @@ class TestEntity extends entity.Entity {
     return "test";
   }
 }
+
+class TestBuild extends build.Build {
+  baseEntity(): entity.Entity {
+    return new TestEntity({
+      id: this.id,
+      name: this.name,
+    })
+  }
+  systemName(): string {
+    return "test";
+  }
+  systemVersion(): number {
+    return 5326;
+  }
+}
+
+describe('expressions', () => {
+  test('number', () => {
+    const e = expr.parseExpression("1");
+    expect(e).toBeInstanceOf(expr.ExprNumber);
+    expect((e as expr.ExprNumber).value).toBe(1);
+  });
+
+  test('add', () => {
+    const e = expr.parseExpression("1+2");
+    expect(e).toBeInstanceOf(expr.ExprBin);
+    expect((e as expr.ExprBin).op).toBe(expr.ExprBinOp.ADD);
+
+    expect((e as expr.ExprBin).lhs).toBeInstanceOf(expr.ExprNumber);
+    expect(((e as expr.ExprBin).lhs as expr.ExprNumber).value).toBe(1);
+
+    expect((e as expr.ExprBin).rhs).toBeInstanceOf(expr.ExprNumber);
+    expect(((e as expr.ExprBin).rhs as expr.ExprNumber).value).toBe(2);
+  });
+
+  test('eval', () => {
+    const e = expr.parseExpression("1+2*3");
+    const ctx = new TestEntity().evalContext();
+    
+    expect(e.eval(ctx)).toBe(7);
+  });
+});
 
 describe('entities', () => {
   test('create blank', () => {
@@ -101,21 +125,6 @@ describe('entities', () => {
     expect(values).toContain(c3);
   });
 });
-
-class TestBuild extends build.Build {
-  baseEntity(): entity.Entity {
-    return new TestEntity({
-      id: this.id,
-      name: this.name,
-    })
-  }
-  systemName(): string {
-    return "test";
-  }
-  systemVersion(): number {
-    return 5326;
-  }
-}
 
 describe('builds', () => {
   test('create blank', () => {
@@ -199,9 +208,17 @@ describe('builds', () => {
 
 describe('stats', () => {
   test('create blank', () => {
-    const s = new stat.Statistic("5326");
+    const s = new stat.Statistic();
 
     expect(s.entityType()).toBe("stat");
+    expect(s.base).toBe("0");
+  });
+
+  test('create initialized', () => {
+    const s = new stat.Statistic({name: "Test", base: "5326"});
+
+    expect(s.entityType()).toBe("stat");
+    expect(s.name).toBe("Test");
     expect(s.base).toBe("5326");
   });
 
@@ -222,11 +239,117 @@ describe('stats', () => {
   });
 
   test('to JSON', () => {
-    const s = new stat.Statistic("5326");
+    const s = new stat.Statistic({base: "5326"});
     const j: any = s.toJSON();
 
     expect(j.id).toBe(s.id);
     expect(j.type).toBe("stat");
     expect(j.base).toBe("5326");
+  });
+
+  test('eval', () => {
+    const s = new stat.Statistic({base: "1"});
+    const m = new mod.Modifier({stat: s.id, op: mod.ModifierOp.ADD, value: "2"});
+    const root = new TestEntity({children: [s, m]});
+    const ctx = root.evalContext();
+
+    expect(s.eval(ctx)).toBe(3);
+  });
+});
+
+describe('mods', () => {
+  test('create blank', () => {
+    const m = new mod.Modifier();
+
+    expect(m.entityType()).toBe("mod");
+    expect(m.name).toBe("");
+    expect(m.stat).toBe("");
+    expect(m.op).toBe(mod.ModifierOp.ADD);
+    expect(m.value).toBe("0");
+    expect(m.condition).toBe(undefined);
+  });
+
+  test('create initialized', () => {
+    const id = uuid.v4();
+    const m = new mod.Modifier({
+      name: "Test",
+      stat: id,
+      op: mod.ModifierOp.SET,
+      value: "5326",
+      condition: "1=2"
+    });
+
+    expect(m.entityType()).toBe("mod");
+    expect(m.name).toBe("Test");
+    expect(m.stat).toBe(id);
+    expect(m.op).toBe(mod.ModifierOp.SET);
+    expect(m.value).toBe("5326");
+    expect(m.condition).toBe("1=2");
+  });
+
+  test('from JSON', () => {
+    const id = uuid.v4();
+    const m = entity.Entity.fromJSON({
+      id: id,
+      name: "Test",
+      type: "mod",
+      stat: id,
+      op: mod.ModifierOp.SET,
+      value: "5326",
+      condition: "1=2"
+    });
+
+    expect(m.id).toBe(id);
+    expect(m.name).toBe("Test");
+    expect(m.entityType()).toBe("mod");
+    expect(m).toBeInstanceOf(mod.Modifier);
+    expect((m as mod.Modifier).stat).toBe(id);
+    expect((m as mod.Modifier).op).toBe(mod.ModifierOp.SET);
+    expect((m as mod.Modifier).value).toBe("5326");
+    expect((m as mod.Modifier).condition).toBe("1=2");
+  });
+
+  test('to JSON', () => {
+    const m = new mod.Modifier({
+      stat: uuid.v4(),
+      op: mod.ModifierOp.SET,
+      value: "5326",
+      condition: "1=2"
+    });
+    const j: any = m.toJSON();
+
+    expect(j.id).toBe(m.id);
+    expect(j.type).toBe("mod");
+    expect(j.stat).toBe(m.stat);
+    expect(j.op).toBe(m.op);
+    expect(j.value).toBe(m.value);
+    expect(j.condition).toBe(m.condition);
+  });
+
+  test('apply', () => {
+    const s = new stat.Statistic({base: "5326"});
+    const root = new TestEntity({children: [
+      s,
+      new mod.Modifier({stat: s.id, op: mod.ModifierOp.SET, value: "0"}),
+      new mod.Modifier({stat: s.id, op: mod.ModifierOp.ADD, value: "1"}),
+      new mod.Modifier({stat: s.id, op: mod.ModifierOp.SUB, value: "2"}),
+      new mod.Modifier({stat: s.id, op: mod.ModifierOp.MUL, value: "3"}),
+      new mod.Modifier({stat: s.id, op: mod.ModifierOp.DIV, value: "4"}),
+    ]});
+    const ctx = root.evalContext();
+
+    expect(s.eval(ctx)).toBe((((0+1)-2)*3)/4);
+  });
+
+  test('isApplicable', () => {
+    const s = new stat.Statistic({base: "5326"});
+    const root = new TestEntity({children: [
+      s,
+      new mod.Modifier({stat: s.id, op: mod.ModifierOp.SET, value: "2", condition: "1"}),
+      new mod.Modifier({stat: s.id, op: mod.ModifierOp.SET, value: "3", condition: "0"}),
+    ]});
+    const ctx = root.evalContext();
+
+    expect(s.eval(ctx)).toBe(2);
   });
 });
