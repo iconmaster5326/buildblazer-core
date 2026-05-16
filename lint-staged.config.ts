@@ -1,3 +1,4 @@
 export default {
-  "*.ts": [() => "tsc --noEmit", "prettier --write", "eslint"],
+  "*.*": ["prettier --write"],
+  "*.ts": [() => "tsc --noEmit", "eslint"],
 };
