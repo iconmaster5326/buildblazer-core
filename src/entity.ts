@@ -1,6 +1,5 @@
 import * as uuid from "uuid";
 
-// @ts-ignore
 import { WeakValueMap } from "./util";
 
 export interface DatabaseReference {
@@ -30,8 +29,6 @@ export abstract class Entity {
         this.varName = options.varName ?? "";
         this.children = Array.from(options.children ?? []);
         this.instanceOf = options.instanceOf;
-
-        allEntities.set(this.id, this);
     }
 
     abstract typeString(): string;
@@ -45,6 +42,28 @@ export abstract class Entity {
             ...(this.instanceOf ? {instanceOf: this.instanceOf} : {}),
         };
     }
-}
 
-export const allEntities: WeakValueMap<string, Entity> = new WeakValueMap<string, Entity>();
+    uuidMap(map?: Record<string, Entity>): Record<string, Entity> {
+        if (map === undefined) {
+            map = {};
+        } else if (map[this.id]) {
+            throw new Error("Two entities have the same UUID!");
+        }
+        map[this.id] = this;
+        this.children.forEach(child => {
+            child.uuidMap(map);
+        });
+        return map;
+    }
+
+    static fromJSON(json: any): Entity {
+        const t: string = json["type"];
+        const handler = Entity.FROM_JSON_REGISTRY[t];
+        if (handler === undefined) {
+            throw new Error(`Unknown entity type '${t}'!`);
+        }
+        return handler(json);
+    }
+
+    static FROM_JSON_REGISTRY: Record<string, (json: any) => Entity> = {};
+}

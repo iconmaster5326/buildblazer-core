@@ -35,9 +35,6 @@ properties:
         - name
         - changes
       properties:
-        name:
-          description: The name of this milestone.
-          type: string
         changes:
           description: What this build alters at this milestone.
           type: array
@@ -49,14 +46,14 @@ properties:
               - type
               - subject
               - property
-              - change
+              - object
             properties:
               type:
                 description: The type of change.
                 enum:
                   - add
-                  - remove
-                  - overwrite
+                  - del
+                  - set
               subject:
                 description: The UUID of the entity to alter.
                 type: string
@@ -64,8 +61,8 @@ properties:
               property:
                 description: The name of the property to alter.
                 type: string
-              change:
-                description: The payload data. For "remove", the UUID of the entity to remove. For others, the full value to set.
+              object:
+                description: The payload data. For "del", the UUID of the entity to remove. For others, the full value to set.
   sheets:
     description: The sheets for this character.
     type: array
@@ -87,38 +84,14 @@ properties:
           description: The milestone this sheet is at.
           type: string
         counters:
-          description: The current value of all counters.
-          type: array
-          items:
-            title: Counter Value
-            description: The current value of a counter.
-            type: object
-            required:
-              - counter
-              - value
-            properties:
-              counter:
-                description: The UUID of the counter.
-                type: string
-                format: uuid
-              value:
-                description: The value of the counter.
-                type: number
+          description: A map of counter UUID to counter value.
+          type: object
+          additionalProperties:
+            description: The value of the counter.
+            type: number
         toggles:
-          description: The current value of all toggles.
-          type: array
-          items:
-            title: Toggle Value
-            description: The current value of a toggle.
-            type: object
-            required:
-              - toggle
-              - value
-            properties:
-              toggle:
-                description: The UUID of the toggle.
-                type: string
-                format: uuid
-              value:
-                description: The value of the toggle.
-                type: boolean
+          description: A map of toggle UUID to toggle value.
+          type: object
+          additionalProperties:
+            description: The value of the toggle.
+            type: boolean
