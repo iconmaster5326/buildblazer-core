@@ -102,6 +102,12 @@ describe('entities', () => {
 });
 
 class TestBuild extends build.Build {
+  baseEntity(): entity.Entity {
+    return new TestEntity({
+      id: this.id,
+      name: this.name,
+    })
+  }
   systemName(): string {
     return "test";
   }
@@ -151,5 +157,41 @@ describe('builds', () => {
     
     expect(c.apply(subject.uuidMap())).toBe(true);
     expect((subject as any).x).toHaveLength(0);
+  });
+
+  test('entityAfterMilestone', () => {
+    const id = uuid.v4();
+    const m1 = new build.Milestone({
+      changes: [
+        new build.ChangeSet(id, "x", 0),
+        new build.ChangeSet(id, "x", 1),
+      ],
+    });
+    const m2 = new build.Milestone({
+      changes: [
+        new build.ChangeSet(id, "x", 2),
+        new build.ChangeSet(id, "x", 3),
+      ],
+    });
+    const b = new TestBuild({
+      id: id,
+      name: "Test",
+      milestones: [
+        m1,
+        m2,
+      ],
+    });
+    const e1 = b.entityAfterMilestone(m1);
+    const e2 = b.entityAfterMilestone(m2);
+
+    expect(e1.id).toBe(id);
+    expect(e1.name).toBe("Test");
+    expect(e1).toHaveProperty("x");
+    expect((e1 as any).x).toBe(1);
+
+    expect(e2.id).toBe(id);
+    expect(e2.name).toBe("Test");
+    expect(e2).toHaveProperty("x");
+    expect((e2 as any).x).toBe(3);
   });
 });

@@ -112,6 +112,11 @@ export class Milestone {
             changes: this.changes.map(c => c.toJSON()),
         };
     }
+
+    apply(e: entity.Entity): boolean {
+        // TODO: log warnings if changes failed
+        return this.changes.map(c => c.apply(e.uuidMap())).every(x => x);
+    }
 }
 
 export class Sheet {
@@ -190,5 +195,16 @@ export abstract class Build {
             milestones: this.milestones.map(m => m.toJSON()),
             sheets: this.sheets.map(s => s.toJSON()),
         };
+    }
+
+    abstract baseEntity(): entity.Entity;
+
+    entityAfterMilestone(milestone: Milestone): entity.Entity {
+        const e = this.baseEntity();
+        for (const m of this.milestones) {
+            m.apply(e);
+            if (m === milestone) break;
+        }
+        return e;
     }
 }
