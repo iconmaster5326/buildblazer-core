@@ -1,11 +1,11 @@
 import * as ohm from "ohm-js";
 
-import * as entity from "./entity";
+import { Entity } from "./entity";
 
 export interface EvalContext {
-  rootEntity: entity.Entity;
-  currentEntity: entity.Entity;
-  uuidMap: Record<string, entity.Entity>;
+  rootEntity: Entity;
+  currentEntity: Entity;
+  uuidMap: Record<string, Entity>;
 }
 
 export abstract class Expression {
@@ -21,7 +21,7 @@ export class ExprNumber extends Expression {
   }
 
   eval(ctx: EvalContext): number {
-    return this.value
+    return this.value;
   }
 }
 
@@ -55,20 +55,34 @@ export class ExprBin extends Expression {
 
   eval(ctx: EvalContext): number {
     switch (this.op) {
-      case ExprBinOp.ADD: return this.lhs.eval(ctx) + this.rhs.eval(ctx);
-      case ExprBinOp.SUB: return this.lhs.eval(ctx) - this.rhs.eval(ctx);
-      case ExprBinOp.MUL: return this.lhs.eval(ctx) * this.rhs.eval(ctx);
-      case ExprBinOp.DIV: return this.lhs.eval(ctx) / this.rhs.eval(ctx);
-      case ExprBinOp.EXP: return this.lhs.eval(ctx) ** this.rhs.eval(ctx);
-      case ExprBinOp.AND: return this.lhs.eval(ctx) && this.rhs.eval(ctx);
-      case ExprBinOp.OR: return this.lhs.eval(ctx) || this.rhs.eval(ctx);
-      case ExprBinOp.EQ: return this.lhs.eval(ctx) == this.rhs.eval(ctx) ? 1 : 0;
-      case ExprBinOp.NEQ: return this.lhs.eval(ctx) != this.rhs.eval(ctx) ? 1 : 0;
-      case ExprBinOp.LT: return this.lhs.eval(ctx) < this.rhs.eval(ctx) ? 1 : 0;
-      case ExprBinOp.LE: return this.lhs.eval(ctx) <= this.rhs.eval(ctx) ? 1 : 0;
-      case ExprBinOp.GT: return this.lhs.eval(ctx) > this.rhs.eval(ctx) ? 1 : 0;
-      case ExprBinOp.GE: return this.lhs.eval(ctx) >= this.rhs.eval(ctx) ? 1 : 0;
-      default: throw new Error(`Unknown operator '${this.op}'!`)
+      case ExprBinOp.ADD:
+        return this.lhs.eval(ctx) + this.rhs.eval(ctx);
+      case ExprBinOp.SUB:
+        return this.lhs.eval(ctx) - this.rhs.eval(ctx);
+      case ExprBinOp.MUL:
+        return this.lhs.eval(ctx) * this.rhs.eval(ctx);
+      case ExprBinOp.DIV:
+        return this.lhs.eval(ctx) / this.rhs.eval(ctx);
+      case ExprBinOp.EXP:
+        return this.lhs.eval(ctx) ** this.rhs.eval(ctx);
+      case ExprBinOp.AND:
+        return this.lhs.eval(ctx) && this.rhs.eval(ctx);
+      case ExprBinOp.OR:
+        return this.lhs.eval(ctx) || this.rhs.eval(ctx);
+      case ExprBinOp.EQ:
+        return this.lhs.eval(ctx) == this.rhs.eval(ctx) ? 1 : 0;
+      case ExprBinOp.NEQ:
+        return this.lhs.eval(ctx) != this.rhs.eval(ctx) ? 1 : 0;
+      case ExprBinOp.LT:
+        return this.lhs.eval(ctx) < this.rhs.eval(ctx) ? 1 : 0;
+      case ExprBinOp.LE:
+        return this.lhs.eval(ctx) <= this.rhs.eval(ctx) ? 1 : 0;
+      case ExprBinOp.GT:
+        return this.lhs.eval(ctx) > this.rhs.eval(ctx) ? 1 : 0;
+      case ExprBinOp.GE:
+        return this.lhs.eval(ctx) >= this.rhs.eval(ctx) ? 1 : 0;
+      default:
+        throw new Error(`Unknown operator '${this.op}'!`);
     }
   }
 }
@@ -154,7 +168,7 @@ Expression {
 export const exprSemantics = exprGrammar.createSemantics();
 
 function parse(expr: ohm.Node): Expression {
-  return expr.parse()
+  return expr.parse();
 }
 
 exprSemantics.addOperation("parse", {
@@ -203,5 +217,7 @@ exprSemantics.addOperation("parse", {
 });
 
 export function parseExpression(expr: string | ohm.MatchResult): Expression {
-  return exprSemantics(typeof(expr) === "string" ? exprGrammar.match(expr) : expr).parse();
+  return exprSemantics(
+    typeof expr === "string" ? exprGrammar.match(expr) : expr,
+  ).parse();
 }

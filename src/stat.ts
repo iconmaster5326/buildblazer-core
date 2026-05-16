@@ -1,14 +1,14 @@
-import * as entity from "./entity";
-import * as expr from "./expr";
-import * as mod from "./mod";
+import { Entity, type EntityOptions } from "./entity";
+import { parseExpression, type EvalContext } from "./expr";
+import { Modifier } from "./mod";
 
 const ETYPE = "stat";
 
-export interface StatisticOptions extends entity.EntityOptions {
+export interface StatisticOptions extends EntityOptions {
   base?: string;
 }
 
-export class Statistic extends entity.Entity {
+export class Statistic extends Entity {
   entityType(): string {
     return ETYPE;
   }
@@ -24,35 +24,38 @@ export class Statistic extends entity.Entity {
     return {
       ...super.toJSON(),
       base: this.base,
-    }
+    };
   }
 
-  allMods(ctx: expr.EvalContext): mod.Modifier[] {
-    const result: mod.Modifier[] = [];
-    if (ctx.rootEntity instanceof mod.Modifier && ctx.rootEntity.stat === this.id) {
+  allMods(ctx: EvalContext): Modifier[] {
+    const result: Modifier[] = [];
+    if (ctx.rootEntity instanceof Modifier && ctx.rootEntity.stat === this.id) {
       result.push(ctx.rootEntity);
     }
     for (const child of ctx.rootEntity.children) {
       this.allMods({
         ...ctx,
         rootEntity: child,
-      }).forEach(mod => result.push(mod));
+      }).forEach((mod) => result.push(mod));
     }
     return result;
   }
 
-  applicableMods(ctx: expr.EvalContext): mod.Modifier[] {
-    return this.allMods(ctx).filter(m => m.isApplicable(ctx));
+  applicableMods(ctx: EvalContext): Modifier[] {
+    return this.allMods(ctx).filter((m) => m.isApplicable(ctx));
   }
 
-  eval(ctx: expr.EvalContext): number {
-    return this.applicableMods(ctx).reduce((n, m) => m.apply(n, ctx), expr.parseExpression(this.base).eval({
-      ...ctx,
-      currentEntity: this,
-    }));
+  eval(ctx: EvalContext): number {
+    return this.applicableMods(ctx).reduce(
+      (n, m) => m.apply(n, ctx),
+      parseExpression(this.base).eval({
+        ...ctx,
+        currentEntity: this,
+      }),
+    );
   }
 }
 
-entity.Entity.FROM_JSON_REGISTRY[ETYPE] = (json: any) => {
+Entity.FROM_JSON_REGISTRY[ETYPE] = (json: any) => {
   return new Statistic(json);
 };

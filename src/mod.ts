@@ -1,5 +1,5 @@
-import * as entity from "./entity";
-import * as expr from "./expr";
+import { Entity, type EntityOptions } from "./entity";
+import { parseExpression, type EvalContext } from "./expr";
 
 const ETYPE = "mod";
 
@@ -11,14 +11,14 @@ export enum ModifierOp {
   DIV = "div",
 }
 
-export interface ModifierOptions extends entity.EntityOptions {
+export interface ModifierOptions extends EntityOptions {
   stat?: string;
   op?: ModifierOp;
   value?: string;
   condition?: string;
 }
 
-export class Modifier extends entity.Entity {
+export class Modifier extends Entity {
   stat: string;
   op: ModifierOp;
   value: string;
@@ -46,32 +46,40 @@ export class Modifier extends entity.Entity {
     };
   }
 
-  isApplicable(ctx: expr.EvalContext): boolean {
+  isApplicable(ctx: EvalContext): boolean {
     if (!this.condition) {
       return true;
     }
-    return expr.parseExpression(this.condition).eval({
+    return parseExpression(this.condition).eval({
       ...ctx,
       currentEntity: this,
-    }) ? true : false;
+    })
+      ? true
+      : false;
   }
 
-  apply(n: number, ctx: expr.EvalContext): number {
-    const value = expr.parseExpression(this.value).eval({
+  apply(n: number, ctx: EvalContext): number {
+    const value = parseExpression(this.value).eval({
       ...ctx,
       currentEntity: this,
     });
     switch (this.op) {
-      case ModifierOp.ADD: return n + value;
-      case ModifierOp.DIV: return n / value;
-      case ModifierOp.MUL: return n * value;
-      case ModifierOp.SET: return value;
-      case ModifierOp.SUB: return n - value;
-      default: throw new Error(`Unknown modifier op '${this.op}'!`);
+      case ModifierOp.ADD:
+        return n + value;
+      case ModifierOp.DIV:
+        return n / value;
+      case ModifierOp.MUL:
+        return n * value;
+      case ModifierOp.SET:
+        return value;
+      case ModifierOp.SUB:
+        return n - value;
+      default:
+        throw new Error(`Unknown modifier op '${this.op}'!`);
     }
   }
 }
 
-entity.Entity.FROM_JSON_REGISTRY[ETYPE] = (json: any) => {
+Entity.FROM_JSON_REGISTRY[ETYPE] = (json: any) => {
   return new Modifier(json);
 };
