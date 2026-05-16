@@ -9,7 +9,7 @@ const getPackageName = () => {
 
 const getPackageNameCamelCase = () => {
   try {
-    return getPackageName().replace(/-./g, char => char[1].toUpperCase());
+    return getPackageName().replace(/-./g, (char) => char[1].toUpperCase());
   } catch {
     throw new Error("Name property in package.json is missing.");
   }
@@ -29,7 +29,7 @@ export default defineConfig({
       entry: path.resolve(__dirname, "src/index.ts"),
       name: getPackageNameCamelCase(),
       formats: formats,
-      fileName: format => (fileName as any)[format],
+      fileName: (format) => (fileName as Record<string, string>)[format],
     },
   },
   test: {

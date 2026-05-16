@@ -20,7 +20,7 @@ export class ExprNumber extends Expression {
     this.value = value;
   }
 
-  eval(ctx: EvalContext): number {
+  eval(): number {
     return this.value;
   }
 }
