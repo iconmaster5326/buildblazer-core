@@ -153,6 +153,57 @@ describe("expressions", () => {
     expect(parseExpression("+1#x").tags).toHaveLength(1);
     expect(parseExpression("-1#x").tags).toHaveLength(1);
   });
+
+  test("dice options", () => {
+    expect((parseExpression("1d6") as ExprDice).keepHighest).toBe(undefined);
+    expect(
+      (parseExpression("1d6kh1") as ExprDice).keepHighest?.toString(),
+    ).toBe("1");
+
+    expect((parseExpression("1d6") as ExprDice).keepLowest).toBe(undefined);
+    expect((parseExpression("1d6kl1") as ExprDice).keepLowest?.toString()).toBe(
+      "1",
+    );
+
+    expect((parseExpression("1d6") as ExprDice).dropHighest).toBe(undefined);
+    expect(
+      (parseExpression("1d6dh1") as ExprDice).dropHighest?.toString(),
+    ).toBe("1");
+
+    expect((parseExpression("1d6") as ExprDice).dropLowest).toBe(undefined);
+    expect((parseExpression("1d6dl1") as ExprDice).dropLowest?.toString()).toBe(
+      "1",
+    );
+
+    expect((parseExpression("1d6") as ExprDice).explode).toBe(false);
+    expect((parseExpression("1d6ex") as ExprDice).explode).toBe(true);
+  });
+
+  test("multiple dice options", () => {
+    const bigExpr = parseExpression("1d6kh(a)kl(b)dh(c)dl(d)ex") as ExprDice;
+    expect(bigExpr.toString()).toBe("1d6kh(a)kl(b)dh(c)dl(d)ex");
+    expect(bigExpr.keepHighest?.toString()).toBe("a");
+    expect(bigExpr.keepLowest?.toString()).toBe("b");
+    expect(bigExpr.dropHighest?.toString()).toBe("c");
+    expect(bigExpr.dropLowest?.toString()).toBe("d");
+    expect(bigExpr.explode).toBe(true);
+  });
+
+  test("shuffled dice options", () => {
+    const shuffledExpr = parseExpression(
+      "1d6exdl(d)dh(c)kl(b)kh(a)",
+    ) as ExprDice;
+    expect(shuffledExpr.toString()).toBe("1d6kh(a)kl(b)dh(c)dl(d)ex");
+    expect(shuffledExpr.keepHighest?.toString()).toBe("a");
+    expect(shuffledExpr.keepLowest?.toString()).toBe("b");
+    expect(shuffledExpr.dropHighest?.toString()).toBe("c");
+    expect(shuffledExpr.dropLowest?.toString()).toBe("d");
+    expect(shuffledExpr.explode).toBe(true);
+  });
+
+  test("duplicate dice options", () => {
+    expect(parseExpression("1d6exexexex").toString()).toBe("1d6ex");
+  });
 });
 
 describe("entities", () => {

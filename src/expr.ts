@@ -354,6 +354,14 @@ export class ExprNeg extends Expression {
   }
 }
 
+export interface ExprDiceOptions {
+  keepHighest?: Expression;
+  keepLowest?: Expression;
+  dropHighest?: Expression;
+  dropLowest?: Expression;
+  explode?: boolean;
+}
+
 export class ExprDice extends Expression {
   nDice: Expression;
   nFaces: Expression;
@@ -366,13 +374,7 @@ export class ExprDice extends Expression {
   constructor(
     nDice: Expression,
     nFaces: Expression,
-    options: {
-      keepHighest?: Expression;
-      keepLowest?: Expression;
-      dropHighest?: Expression;
-      dropLowest?: Expression;
-      explode?: boolean;
-    } = {},
+    options: ExprDiceOptions = {},
   ) {
     super();
     this.nDice = nDice;
@@ -420,7 +422,23 @@ export class ExprDice extends Expression {
 
   toString(): string {
     const prec = this.precedence();
-    return `${this.nDice.toStringWithParens(prec)}d${this.nFaces.toStringWithParens(prec)}`;
+    let sb = `${this.nDice.toStringWithParens(prec)}d${this.nFaces.toStringWithParens(prec)}`;
+    if (this.keepHighest) {
+      sb += `kh${this.keepHighest.toStringWithParens(this.precedence())}`;
+    }
+    if (this.keepLowest) {
+      sb += `kl${this.keepLowest.toStringWithParens(this.precedence())}`;
+    }
+    if (this.dropHighest) {
+      sb += `dh${this.dropHighest.toStringWithParens(this.precedence())}`;
+    }
+    if (this.dropLowest) {
+      sb += `dl${this.dropLowest.toStringWithParens(this.precedence())}`;
+    }
+    if (this.explode) {
+      sb += `ex`;
+    }
+    return sb;
   }
 
   precedence(): number {
@@ -604,7 +622,7 @@ Expression {
     | ExprConst
   
   ExprConst
-    = ExprConst caseInsensitive<"d"> ExprConst DicePostfix? -- Dice
+    = ExprConst caseInsensitive<"d"> ExprConst DicePostfix* -- Dice
     | "(" Expr ")" -- Parens
     | number -- Number
   
@@ -637,6 +655,34 @@ exprSemantics.addOperation("varParts", {
   },
 });
 
+exprSemantics.addOperation("dicePostfix", {
+  DicePostfix_KeepHighest(_, arg): ExprDiceOptions {
+    return {
+      keepHighest: parse(arg),
+    };
+  },
+  DicePostfix_KeepLowest(_, arg): ExprDiceOptions {
+    return {
+      keepLowest: parse(arg),
+    };
+  },
+  DicePostfix_DropHighest(_, arg): ExprDiceOptions {
+    return {
+      dropHighest: parse(arg),
+    };
+  },
+  DicePostfix_DropLowest(_, arg): ExprDiceOptions {
+    return {
+      dropLowest: parse(arg),
+    };
+  },
+  DicePostfix_Explode(_): ExprDiceOptions {
+    return {
+      explode: true,
+    };
+  },
+});
+
 function nonIteratorChildren(node: ohm.Node): ohm.Node[] {
   if (!node.isIteration()) {
     return [node];
@@ -656,8 +702,18 @@ exprSemantics.addOperation("parse", {
     return parse(value);
   },
   ExprConst_Dice(nDice, _, nFaces, options): Expression {
-    // TODO: roll options
-    return new ExprDice(parse(nDice), parse(nFaces));
+    return new ExprDice(
+      parse(nDice),
+      parse(nFaces),
+      nonIteratorChildren(options)
+        .map((n) => n.dicePostfix() as ExprDiceOptions)
+        .reduce((acc, n) => {
+          return {
+            ...acc,
+            ...n,
+          };
+        }, {} as ExprDiceOptions),
+    );
   },
   ExprAnd_And(lhs, _, rhs): Expression {
     return new ExprBin(parse(lhs), ExprBinOp.AND, parse(rhs));
