@@ -21,9 +21,9 @@ allOf:
         enum:
           - set
           - add
-          - subtract
-          - multiply
-          - divide
+          - sub
+          - mul
+          - div
       value:
         description: The expression to alter the value by.
         type: string
