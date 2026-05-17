@@ -171,15 +171,14 @@ export abstract class Build {
     options: {
       id?: string;
       name?: string;
-      loadedSystemVersion?: number;
+      systemVersion?: number;
       milestones?: Milestone[];
       sheets?: Sheet[];
     } = {},
   ) {
     this.id = options.id ?? uuid.v4();
     this.name = options.name ?? "";
-    this.loadedSystemVersion =
-      options.loadedSystemVersion ?? this.systemVersion();
+    this.loadedSystemVersion = options.systemVersion ?? this.systemVersion();
     this.milestones = [...(options.milestones ?? [])];
     this.sheets = [...(options.sheets ?? [])];
   }
