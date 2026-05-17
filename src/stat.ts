@@ -1,5 +1,5 @@
 import { Entity, type EntityOptions } from "./entity";
-import { parseExpression, type EvalContext } from "./expr";
+import { Expression, parseExpression, type EvalContext } from "./expr";
 import { Modifier } from "./mod";
 
 const ETYPE = "stat";
@@ -45,14 +45,17 @@ export class Statistic extends Entity {
     return this.allMods(ctx).filter((m) => m.isApplicable(ctx));
   }
 
-  eval(ctx: EvalContext): number {
-    return this.applicableMods(ctx).reduce(
-      (n, m) => m.apply(n, ctx),
-      parseExpression(this.base).eval({
+  valueExpr(ctx: EvalContext): Expression {
+    return this.applicableMods(ctx)
+      .reduce((n, m) => m.apply(n, ctx), parseExpression(this.base))
+      .simplify({
         ...ctx,
         currentEntity: this,
-      }),
-    );
+      });
+  }
+
+  eval(ctx: EvalContext): number {
+    return this.valueExpr(ctx).eval(ctx);
   }
 }
 

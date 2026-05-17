@@ -9,7 +9,13 @@ import {
   Milestone,
 } from "../src/build";
 import { Entity } from "../src/entity";
-import { parseExpression, ExprNumber, ExprBin, ExprBinOp } from "../src/expr";
+import {
+  parseExpression,
+  ExprNumber,
+  ExprBin,
+  ExprBinOp,
+  ExprDice,
+} from "../src/expr";
 import { Modifier, ModifierOp } from "../src/mod";
 import { Statistic } from "../src/stat";
 
@@ -61,6 +67,51 @@ describe("expressions", () => {
     const ctx = new TestEntity().evalContext();
 
     expect(e.eval(ctx)).toBe(7);
+  });
+
+  test("simplify const bin op", () => {
+    const e = parseExpression("1+2*3");
+    const ctx = new TestEntity().evalContext();
+    const simplified = e.simplify(ctx);
+
+    expect(simplified).toBeInstanceOf(ExprNumber);
+    expect((simplified as ExprNumber).value).toBe(7);
+  });
+
+  test("simplify dice bin op", () => {
+    const e = parseExpression("1d2+3+4");
+    const ctx = new TestEntity().evalContext();
+    const simplified = e.simplify(ctx);
+
+    expect(simplified).toBeInstanceOf(ExprBin);
+    expect(simplified.toString()).toBe("1d2 + 7");
+  });
+
+  test("simplify dice pile", () => {
+    const e = parseExpression("1d2+3+1d8-4");
+    const ctx = new TestEntity().evalContext();
+    const simplified = e.simplify(ctx);
+
+    expect(simplified).toBeInstanceOf(ExprBin);
+    expect(simplified.toString()).toBe("1d2 + 1d8 - 1");
+  });
+
+  test("simplify double negative", () => {
+    const e = parseExpression("-(-1d6)");
+    const ctx = new TestEntity().evalContext();
+    const simplified = e.simplify(ctx);
+
+    expect(simplified).toBeInstanceOf(ExprDice);
+    expect(simplified.toString()).toBe("1d6");
+  });
+
+  test("toString precedence", () => {
+    expect(parseExpression("(1)d6").toString()).toBe("1d6");
+    expect(parseExpression("(1+2)d6").toString()).toBe("(1 + 2)d6");
+    expect(parseExpression("(-1)d6").toString()).toBe("(-1)d6");
+    expect(parseExpression("-1d6").toString()).toBe("-1d6");
+    expect(parseExpression("1+2*3").toString()).toBe("1 + 2 * 3");
+    expect(parseExpression("(1+2)*3").toString()).toBe("(1 + 2) * 3");
   });
 });
 
@@ -252,6 +303,17 @@ describe("stats", () => {
     const ctx = root.evalContext();
 
     expect(s.eval(ctx)).toBe(3);
+  });
+
+  test("valueExpr", () => {
+    const s = new Statistic({ base: "1d6" });
+    const m1 = new Modifier({ stat: s.id, op: ModifierOp.ADD, value: "3" });
+    const m2 = new Modifier({ stat: s.id, op: ModifierOp.SUB, value: "1" });
+    const root = new TestEntity({ children: [s, m1, m2] });
+    const ctx = root.evalContext();
+    const result = s.valueExpr(ctx);
+
+    expect(result.toString()).toBe("1d6 + 2");
   });
 });
 

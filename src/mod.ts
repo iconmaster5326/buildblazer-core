@@ -1,5 +1,11 @@
 import { Entity, type EntityOptions } from "./entity";
-import { parseExpression, type EvalContext } from "./expr";
+import {
+  ExprBin,
+  ExprBinOp,
+  Expression,
+  parseExpression,
+  type EvalContext,
+} from "./expr";
 
 const ETYPE = "mod";
 
@@ -58,22 +64,22 @@ export class Modifier extends Entity {
       : false;
   }
 
-  apply(n: number, ctx: EvalContext): number {
-    const value = parseExpression(this.value).eval({
+  apply(e: Expression, ctx: EvalContext): Expression {
+    const value = parseExpression(this.value).simplify({
       ...ctx,
       currentEntity: this,
     });
     switch (this.op) {
       case ModifierOp.ADD:
-        return n + value;
+        return new ExprBin(e, ExprBinOp.ADD, value);
       case ModifierOp.DIV:
-        return n / value;
+        return new ExprBin(e, ExprBinOp.DIV, value);
       case ModifierOp.MUL:
-        return n * value;
+        return new ExprBin(e, ExprBinOp.MUL, value);
       case ModifierOp.SET:
         return value;
       case ModifierOp.SUB:
-        return n - value;
+        return new ExprBin(e, ExprBinOp.SUB, value);
       default:
         throw new Error(`Unknown modifier op '${this.op}'!`);
     }
