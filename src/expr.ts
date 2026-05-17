@@ -15,6 +15,13 @@ export abstract class Expression {
   abstract toString(): string;
   abstract precedence(): number;
 
+  tags: string[] = [];
+
+  addTags(...tags: string[]): this {
+    this.tags.splice(this.tags.length, 0, ...tags);
+    return this;
+  }
+
   toStringWithParens(outerPrecedence: number): string {
     const value = this.toString();
     if (outerPrecedence <= this.precedence()) {
@@ -417,6 +424,124 @@ export class ExprDice extends Expression {
   }
 
   precedence(): number {
+    return 10;
+  }
+}
+
+export class ExprIf extends Expression {
+  cond: Expression;
+  ifTrue: Expression;
+  ifFalse: Expression;
+
+  constructor(cond: Expression, ifTrue: Expression, ifFalse: Expression) {
+    super();
+    this.cond = cond;
+    this.ifTrue = ifTrue;
+    this.ifFalse = ifFalse;
+  }
+
+  eval(ctx: EvalContext): number {
+    if (this.cond.eval(ctx)) {
+      return this.ifTrue.eval(ctx);
+    } else {
+      return this.ifFalse.eval(ctx);
+    }
+  }
+
+  simplify(ctx: EvalContext): Expression {
+    if (this.cond.constant(ctx)) {
+      if (this.cond.eval(ctx)) {
+        return this.ifTrue.simplify(ctx);
+      } else {
+        return this.ifFalse.simplify(ctx);
+      }
+    }
+    return new ExprIf(
+      this.cond.simplify(ctx),
+      this.ifTrue.simplify(ctx),
+      this.ifFalse.simplify(ctx),
+    );
+  }
+
+  constant(ctx: EvalContext): boolean {
+    if (this.cond.constant(ctx)) {
+      if (this.cond.eval(ctx)) {
+        return this.ifTrue.constant(ctx);
+      } else {
+        return this.ifFalse.constant(ctx);
+      }
+    }
+    return false;
+  }
+
+  toString(): string {
+    return `if ${this.cond.toStringWithParens(this.precedence())} then ${this.ifTrue.toStringWithParens(this.precedence())} else ${this.ifFalse.toStringWithParens(this.precedence())}`;
+  }
+
+  precedence(): number {
+    return 0;
+  }
+}
+
+export class ExprVar extends Expression {
+  components: string[];
+
+  constructor(components: string[]) {
+    super();
+    this.components = components;
+  }
+
+  eval(): number {
+    throw new Error(`Variable '${this.toString()}' not defined!`);
+  }
+
+  simplify(): Expression {
+    return this;
+  }
+
+  constant(): boolean {
+    return false;
+  }
+
+  toString(): string {
+    return this.components.join(".");
+  }
+
+  precedence(): number {
+    return 9;
+  }
+}
+
+export class ExprCall extends Expression {
+  method: ExprVar;
+  args: Expression[];
+
+  constructor(method: ExprVar, args: Expression[]) {
+    super();
+    this.method = method;
+    this.args = args;
+  }
+
+  eval(): number {
+    throw new Error(`Method '${this.method.toString()}' not defined!`);
+  }
+
+  simplify(ctx: EvalContext): Expression {
+    return new ExprCall(
+      this.method,
+      this.args.map((a) => a.simplify(ctx)),
+    );
+  }
+
+  constant(): boolean {
+    return false;
+  }
+
+  toString(): string {
+    return `${this.method.toString()}(${this.args.map((a) => a.toString()).join(", ")})`;
+  }
+
+  precedence(): number {
     return 9;
   }
 }
@@ -506,6 +631,23 @@ function parse(expr: ohm.Node): Expression {
 }
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
+exprSemantics.addOperation("varParts", {
+  Var(part1, _, parts): string[] {
+    return [part1.sourceString, ...parts.children.map((c) => c.sourceString)];
+  },
+});
+
+function nonIteratorChildren(node: ohm.Node): ohm.Node[] {
+  if (!node.isIteration()) {
+    return [node];
+  }
+  const result: ohm.Node[] = [];
+  for (const child of node.children) {
+    result.splice(result.length, 0, ...nonIteratorChildren(child));
+  }
+  return result;
+}
+
 exprSemantics.addOperation("parse", {
   ExprConst_Number(value): Expression {
     return new ExprNumber(Number.parseFloat(value.sourceString));
@@ -561,6 +703,23 @@ exprSemantics.addOperation("parse", {
   },
   ExprUnary_Neg(_, rhs): Expression {
     return new ExprNeg(parse(rhs));
+  },
+  ExprTag_Tag(lhs, _, tags): Expression {
+    return parse(lhs).addTags(...tags.children.map((t) => t.sourceString));
+  },
+  ExprIf_If(_1, cond, _2, then, _3, otherwise) {
+    return new ExprIf(parse(cond), parse(then), parse(otherwise));
+  },
+  ExprLiteral_Var(parts) {
+    return new ExprVar(parts.varParts());
+  },
+  ExprLiteral_Call(method, _1, arg1, _2, args, _3, _4) {
+    return new ExprCall(
+      new ExprVar(method.varParts()),
+      [...nonIteratorChildren(arg1), ...nonIteratorChildren(args)].map((p) =>
+        parse(p),
+      ),
+    );
   },
 });
 /* eslint-enable */

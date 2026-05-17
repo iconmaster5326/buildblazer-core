@@ -113,6 +113,46 @@ describe("expressions", () => {
     expect(parseExpression("1+2*3").toString()).toBe("1 + 2 * 3");
     expect(parseExpression("(1+2)*3").toString()).toBe("(1 + 2) * 3");
   });
+
+  test("if simplify", () => {
+    const ctx = new TestEntity().evalContext();
+
+    expect(
+      parseExpression("if 1 then 1d2 else 3d4").simplify(ctx).toString(),
+    ).toBe("1d2");
+    expect(
+      parseExpression("if 0 then 1d2 else 3d4").simplify(ctx).toString(),
+    ).toBe("3d4");
+    expect(
+      parseExpression("if 1d2 then 3 else 4").simplify(ctx).toString(),
+    ).toBe("if 1d2 then 3 else 4");
+  });
+
+  test("var syntax", () => {
+    expect(parseExpression("x").toString()).toBe("x");
+    expect(parseExpression("x. y").toString()).toBe("x.y");
+    expect(parseExpression("x.y. z").toString()).toBe("x.y.z");
+  });
+
+  test("method call syntax", () => {
+    expect(parseExpression("x()").toString()).toBe("x()");
+    expect(parseExpression("x(y)").toString()).toBe("x(y)");
+    expect(parseExpression("x(y,)").toString()).toBe("x(y)");
+    expect(parseExpression("x(y,z)").toString()).toBe("x(y, z)");
+    expect(parseExpression("x(y,z,)").toString()).toBe("x(y, z)");
+    expect(parseExpression("x.y()").toString()).toBe("x.y()");
+  });
+
+  test("tag syntax", () => {
+    expect(parseExpression("x").tags).toHaveLength(0);
+    expect(parseExpression("x#y").tags).toHaveLength(1);
+    expect(parseExpression("x#y#z").tags).toHaveLength(2);
+    expect(parseExpression("1d6#x").tags).toHaveLength(1);
+    expect(parseExpression("1d(6#x)").tags).toHaveLength(0);
+    expect(parseExpression("1#x").tags).toHaveLength(1);
+    expect(parseExpression("+1#x").tags).toHaveLength(1);
+    expect(parseExpression("-1#x").tags).toHaveLength(1);
+  });
 });
 
 describe("entities", () => {
