@@ -2,34 +2,17 @@
 import path from "path";
 import { defineConfig } from "vite";
 import packageJson from "./package.json";
-
-const getPackageName = () => {
-  return packageJson.name;
-};
-
-const getPackageNameCamelCase = () => {
-  try {
-    return getPackageName().replace(/-./g, (char) => char[1].toUpperCase());
-  } catch {
-    throw new Error("Name property in package.json is missing.");
-  }
-};
-
-const fileName = {
-  es: `${getPackageName()}.js`,
-};
-
-const formats = Object.keys(fileName) as Array<keyof typeof fileName>;
+import dts from "unplugin-dts/vite";
 
 export default defineConfig({
   base: "./",
   build: {
-    outDir: "./build/dist",
+    outDir: "./build/dist/",
     lib: {
       entry: path.resolve(__dirname, "src/index.ts"),
-      name: getPackageNameCamelCase(),
-      formats: formats,
-      fileName: (format) => (fileName as Record<string, string>)[format],
+      formats: ["es", "umd"],
+      fileName: "index",
+      name: packageJson.name,
     },
   },
   test: {
@@ -41,4 +24,5 @@ export default defineConfig({
       "@@": path.resolve(__dirname),
     },
   },
+  plugins: [dts({ bundleTypes: true })],
 });

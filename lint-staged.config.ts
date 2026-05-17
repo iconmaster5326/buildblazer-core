@@ -1,4 +1,4 @@
 export default {
-  "*.*": ["prettier --write"],
-  "*.ts": [() => "tsc --noEmit", "eslint"],
+  "*.*": ["npx prettier --write"],
+  "*.ts": [() => "npx tsc --noEmit", "npx eslint"],
 };
