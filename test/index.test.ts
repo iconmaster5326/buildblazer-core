@@ -18,6 +18,8 @@ import {
 } from "../src/expr";
 import { Modifier, ModifierOp } from "../src/mod";
 import { Statistic } from "../src/stat";
+import { Toggle } from "../src/toggle";
+import { Counter } from "../src/counter";
 
 const uuidRegex =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -516,5 +518,84 @@ describe("mods", () => {
     const ctx = root.evalContext();
 
     expect(s.eval(ctx)).toBe(2);
+  });
+});
+
+describe("toggles", () => {
+  test("create blank", () => {
+    const t = new Toggle();
+
+    expect(t.entityType()).toBe("toggle");
+    expect(t.name).toBe("");
+  });
+
+  test("create initialized", () => {
+    const t = new Toggle({
+      name: "Test",
+    });
+
+    expect(t.entityType()).toBe("toggle");
+    expect(t.name).toBe("Test");
+  });
+
+  test("from JSON", () => {
+    const id = uuid.v4();
+    const t = Toggle.fromJSON({
+      id: id,
+      name: "Test",
+      type: "toggle",
+    });
+
+    expect(t.id).toBe(id);
+    expect(t.name).toBe("Test");
+    expect(t.entityType()).toBe("toggle");
+    expect(t).toBeInstanceOf(Toggle);
+  });
+});
+
+describe("counters", () => {
+  test("create blank", () => {
+    const c = new Counter();
+
+    expect(c.entityType()).toBe("counter");
+    expect(c.name).toBe("");
+    expect(c.defaultsTo).toBe("");
+    expect(c.min).toBe("");
+    expect(c.max).toBe("");
+  });
+
+  test("create initialized", () => {
+    const c = new Counter({
+      name: "Test",
+      defaultsTo: "1",
+      min: "2",
+      max: "3",
+    });
+
+    expect(c.entityType()).toBe("counter");
+    expect(c.name).toBe("Test");
+    expect(c.defaultsTo).toBe("1");
+    expect(c.min).toBe("2");
+    expect(c.max).toBe("3");
+  });
+
+  test("from JSON", () => {
+    const id = uuid.v4();
+    const c = Counter.fromJSON({
+      id: id,
+      name: "Test",
+      type: "counter",
+      defaultsTo: "1",
+      min: "2",
+      max: "3",
+    });
+
+    expect(c.id).toBe(id);
+    expect(c.name).toBe("Test");
+    expect(c.entityType()).toBe("counter");
+    expect(c).toBeInstanceOf(Counter);
+    expect((c as Counter).defaultsTo).toBe("1");
+    expect((c as Counter).min).toBe("2");
+    expect((c as Counter).max).toBe("3");
   });
 });

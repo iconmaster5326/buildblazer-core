@@ -23,8 +23,3 @@ allOf:
         oneOf:
           - type: "null"
           - type: string
-      resetsOn:
-        description: A reset period string, if applicable.
-        oneOf:
-          - type: "null"
-          - type: string
