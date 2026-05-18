@@ -157,6 +157,14 @@ export class Sheet {
   }
 }
 
+export interface BuildOptions {
+  id?: string;
+  name?: string;
+  systemVersion?: number;
+  milestones?: Milestone[];
+  sheets?: Sheet[];
+}
+
 export abstract class Build {
   id: string;
   name: string;
@@ -167,32 +175,13 @@ export abstract class Build {
   abstract systemName(): string;
   abstract systemVersion(): number;
 
-  constructor(
-    options: {
-      id?: string;
-      name?: string;
-      systemVersion?: number;
-      milestones?: Milestone[];
-      sheets?: Sheet[];
-    } = {},
-  ) {
+  constructor(options: BuildOptions = {}) {
     this.id = options.id ?? uuid.v4();
     this.name = options.name ?? "";
     this.loadedSystemVersion = options.systemVersion ?? this.systemVersion();
     this.milestones = [...(options.milestones ?? [])];
     this.sheets = [...(options.sheets ?? [])];
   }
-
-  static fromJSON(json: any): Build {
-    const t: string = json["system"];
-    const handler = Build.FROM_JSON_REGISTRY[t];
-    if (handler === undefined) {
-      throw new Error(`Unknown system '${t}'!`);
-    }
-    return handler(json);
-  }
-
-  static FROM_JSON_REGISTRY: Record<string, (json: any) => Build> = {};
 
   toJSON(): object {
     return {

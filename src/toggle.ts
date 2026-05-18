@@ -1,10 +1,9 @@
 import { Entity, type EntityOptions } from "./entity";
-
-const ETYPE = "toggle";
+import type { SystemEntity } from "./system";
 
 export class Toggle extends Entity {
   entityType(): string {
-    return ETYPE;
+    return Toggle.ETYPE.id;
   }
 
   constructor(options: EntityOptions = {}) {
@@ -16,8 +15,9 @@ export class Toggle extends Entity {
       ...super.toJSON(),
     };
   }
-}
 
-Entity.FROM_JSON_REGISTRY[ETYPE] = (json: any) => {
-  return new Toggle(json);
-};
+  static ETYPE: SystemEntity = {
+    id: "toggle",
+    deserializer: (json) => new Toggle(json),
+  };
+}

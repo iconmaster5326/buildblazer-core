@@ -1,8 +1,7 @@
 import { Entity, type EntityOptions } from "./entity";
 import { Expression, parseExpression, type EvalContext } from "./expr";
 import { Modifier } from "./mod";
-
-const ETYPE = "stat";
+import type { SystemEntity } from "./system";
 
 export interface StatisticOptions extends EntityOptions {
   base?: string;
@@ -10,7 +9,7 @@ export interface StatisticOptions extends EntityOptions {
 
 export class Statistic extends Entity {
   entityType(): string {
-    return ETYPE;
+    return Statistic.ETYPE.id;
   }
 
   base: string;
@@ -57,8 +56,9 @@ export class Statistic extends Entity {
   eval(ctx: EvalContext): number {
     return this.valueExpr(ctx).eval(ctx);
   }
-}
 
-Entity.FROM_JSON_REGISTRY[ETYPE] = (json: any) => {
-  return new Statistic(json);
-};
+  static ETYPE: SystemEntity = {
+    id: "stat",
+    deserializer: (json) => new Statistic(json),
+  };
+}

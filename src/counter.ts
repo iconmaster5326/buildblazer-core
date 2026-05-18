@@ -1,6 +1,5 @@
 import { Entity, type EntityOptions } from "./entity";
-
-const ETYPE = "counter";
+import type { SystemEntity } from "./system";
 
 export interface CounterOptions extends EntityOptions {
   defaultsTo?: string;
@@ -14,7 +13,7 @@ export class Counter extends Entity {
   max: string;
 
   entityType(): string {
-    return ETYPE;
+    return Counter.ETYPE.id;
   }
 
   constructor(options: CounterOptions = {}) {
@@ -32,8 +31,9 @@ export class Counter extends Entity {
       max: this.max,
     };
   }
-}
 
-Entity.FROM_JSON_REGISTRY[ETYPE] = (json: any) => {
-  return new Counter(json);
-};
+  static ETYPE: SystemEntity = {
+    id: "counter",
+    deserializer: (json) => new Counter(json),
+  };
+}

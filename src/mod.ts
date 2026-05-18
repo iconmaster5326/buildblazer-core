@@ -6,8 +6,7 @@ import {
   parseExpression,
   type EvalContext,
 } from "./expr";
-
-const ETYPE = "mod";
+import type { SystemEntity } from "./system";
 
 export enum ModifierOp {
   SET = "set",
@@ -31,7 +30,7 @@ export class Modifier extends Entity {
   condition: string | undefined;
 
   entityType(): string {
-    return ETYPE;
+    return Modifier.ETYPE.id;
   }
 
   constructor(options: ModifierOptions = {}) {
@@ -84,8 +83,9 @@ export class Modifier extends Entity {
         throw new Error(`Unknown modifier op '${this.op}'!`);
     }
   }
-}
 
-Entity.FROM_JSON_REGISTRY[ETYPE] = (json: any) => {
-  return new Modifier(json);
-};
+  static ETYPE: SystemEntity = {
+    id: "mod",
+    deserializer: (json) => new Modifier(json),
+  };
+}

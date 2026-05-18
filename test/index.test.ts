@@ -20,6 +20,7 @@ import { Modifier, ModifierOp } from "../src/mod";
 import { Statistic } from "../src/stat";
 import { Toggle } from "../src/toggle";
 import { Counter } from "../src/counter";
+import { Buildblazer } from "../src/buildblazer";
 
 const uuidRegex =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -365,8 +366,9 @@ describe("stats", () => {
   });
 
   test("from JSON", () => {
+    const bb = new Buildblazer();
     const id = uuid.v4();
-    const s = Statistic.fromJSON({
+    const s = bb.entityFromJSON({
       id: id,
       name: "Test",
       type: "stat",
@@ -441,8 +443,9 @@ describe("mods", () => {
   });
 
   test("from JSON", () => {
+    const bb = new Buildblazer();
     const id = uuid.v4();
-    const m = Modifier.fromJSON({
+    const m = bb.entityFromJSON({
       id: id,
       name: "Test",
       type: "mod",
@@ -539,8 +542,9 @@ describe("toggles", () => {
   });
 
   test("from JSON", () => {
+    const bb = new Buildblazer();
     const id = uuid.v4();
-    const t = Toggle.fromJSON({
+    const t = bb.entityFromJSON({
       id: id,
       name: "Test",
       type: "toggle",
@@ -580,8 +584,9 @@ describe("counters", () => {
   });
 
   test("from JSON", () => {
+    const bb = new Buildblazer();
     const id = uuid.v4();
-    const c = Counter.fromJSON({
+    const c = bb.entityFromJSON({
       id: id,
       name: "Test",
       type: "counter",

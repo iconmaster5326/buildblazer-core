@@ -59,17 +59,6 @@ export abstract class Entity {
     return map;
   }
 
-  static fromJSON(json: any): Entity {
-    const t: string = json["type"];
-    const handler = Entity.FROM_JSON_REGISTRY[t];
-    if (handler === undefined) {
-      throw new Error(`Unknown entity type '${t}'!`);
-    }
-    return handler(json);
-  }
-
-  static FROM_JSON_REGISTRY: Record<string, (json: any) => Entity> = {};
-
   evalContext(): EvalContext {
     return {
       currentEntity: this,
