@@ -1,10 +1,20 @@
 import * as uuid from "uuid";
 
 import { Entity } from "./entity";
+import type { Buildblazer } from "./buildblazer";
 
+/**
+ * A single change in a milestone.
+ * This is not meant to be overriden by systems; the set of change types are fixed!
+ *
+ * @see {@link ChangeAdd}, {@link ChangeDel}, {@link ChangeSet}
+ */
 export abstract class Change {
+  /** The UUID of entity that is about to be modified. */
   subject: string;
+  /** The internal name of the property to be modified. */
   property: string;
+  /** The argument to be set/added/removed. Type varies based on subclass. */
   object: any;
 
   constructor(subject: string, property: string, object: any) {
@@ -13,23 +23,42 @@ export abstract class Change {
     this.object = object;
   }
 
-  abstract changeType(): string;
+  /** The unique ID of the change subclass, used for serialization. */
+  abstract changeType(): "add" | "set" | "del";
+
+  /**
+   * Apply this change to an entity build built up.
+   * @param uuidMap The mapping of UUIDs to Entities.
+   * @returns Whether or not this application was successful.
+   */
   abstract apply(uuidMap: Record<string, Entity>): boolean;
 
-  static fromJSON(json: any): Change {
-    switch (json["type"]) {
+  /** Serialize a change from JSON. */
+  static fromJSON(bb: Buildblazer, json: any): Change {
+    switch (json.type) {
       case "set":
-        return new ChangeSet(json["subject"], json["property"], json["object"]);
+        return new ChangeSet(
+          json.subject,
+          json.property,
+          typeof json.object === "object"
+            ? bb.entityFromJSON(json.object)
+            : json.object,
+        );
       case "add":
-        return new ChangeAdd(json["subject"], json["property"], json["object"]);
+        return new ChangeAdd(
+          json.subject,
+          json.property,
+          bb.entityFromJSON(json.object),
+        );
       case "del":
-        return new ChangeDel(json["subject"], json["property"], json["object"]);
+        return new ChangeDel(json.subject, json.property, json.object);
       default:
-        throw new Error(`Unknown change type '${json["type"]}'!`);
+        throw new Error(`Unknown change type '${json.type}'!`);
     }
   }
 
-  toJSON(): object {
+  /** Deserialize a change into JSON. */
+  toJSON(): any {
     return {
       type: this.changeType(),
       subject: this.subject,
@@ -39,8 +68,12 @@ export abstract class Change {
   }
 }
 
+/**
+ * A {@link Change} that sets a property to a given value.
+ * {@link object} must be either an {@link Entity}, or of a value type (string, number, boolean, etc).
+ */
 export class ChangeSet extends Change {
-  changeType(): string {
+  changeType(): "add" | "set" | "del" {
     return "set";
   }
 
@@ -50,8 +83,12 @@ export class ChangeSet extends Change {
   }
 }
 
+/**
+ * A {@link Change} that adds an entity to an entity array.
+ * {@link object} must be an {@link Entity}.
+ */
 export class ChangeAdd extends Change {
-  changeType(): string {
+  changeType(): "add" | "set" | "del" {
     return "add";
   }
 
@@ -68,8 +105,12 @@ export class ChangeAdd extends Change {
   }
 }
 
+/**
+ * A {@link Change} that removes an entity from an entity array, based on UUID.
+ * {@link object} must be a string UUID.
+ */
 export class ChangeDel extends Change {
-  changeType(): string {
+  changeType(): "add" | "set" | "del" {
     return "del";
   }
 
@@ -89,65 +130,90 @@ export class ChangeDel extends Change {
   }
 }
 
+/** Options for constructing new instance of {@link Milestone}. */
+export interface MilestoneOptions {
+  /** A human-readable name for the milestone. Usually the number of the level, able to be directly parsed, but can be anything. */
+  name?: string;
+  /** A set of changes that occur at this milestone. They are applied in order to form the character at a given milestone. */
+  changes?: Change[];
+}
+
+/**
+ * A milestone in a build.
+ * Usually milestones occur at each level, but they can be whatever the user/system wishes.
+ * These contain changesets, which are built up to construct a character at any given milestone.
+ */
 export class Milestone {
+  /** A human-readable name for the milestone. Usually the number of the level, able to be directly parsed, but can be anything. */
   name: string;
+  /** A set of changes that occur at this milestone. They are applied in order to form the character at a given milestone. */
   changes: Change[];
 
-  constructor(
-    options: {
-      name?: string;
-      changes?: Change[];
-    } = {},
-  ) {
+  constructor(options: MilestoneOptions = {}) {
     this.name = options.name ?? "";
     this.changes = [...(options.changes ?? [])];
   }
 
-  static fromJSON(json: any): Milestone {
+  /** Deserialize a milestone from JSON. */
+  static fromJSON(bb: Buildblazer, json: any): Milestone {
     return new Milestone({
       ...json,
-      changes: json["changes"].map(Change.fromJSON),
+      changes: (json.changes ?? []).map((c: any) => Change.fromJSON(bb, c)),
     });
   }
 
-  toJSON(): object {
+  /** Serialize a milestone to JSON. */
+  toJSON(): any {
     return {
       name: this.name,
       changes: this.changes.map((c) => c.toJSON()),
     };
   }
 
+  /** Builds up the given root entity, applying each change in {@link changes} in sequence. */
   apply(e: Entity): boolean {
     // TODO: log warnings if changes failed
     return this.changes.map((c) => c.apply(e.uuidMap())).every((x) => x);
   }
 }
 
+/** Options for constructing new instance of {@link Sheet}. */
+export interface SheetOptions {
+  /** The name of this sheet. Empty if no name was provided (likely meaning this is the primary sheet). */
+  name?: string;
+  /** What milestone is this sheet at? The {@link Milestone.(name:instance)|name} of a {@link Milestone}. */
+  milestone?: string;
+  /** A map of {@link Counter} UUID to its current value. */
+  counters?: Record<string, number>;
+  /** A map of {@link Toggle} UUID to its current state. */
+  toggles?: Record<string, boolean>;
+}
+
+/** A character sheet - An instance of a character at a given milestone. Keeps track of counters, conditions, and so on. */
 export class Sheet {
+  /** The name of this sheet. Empty if no name was provided (likely meaning this is the primary sheet). */
   name: string;
+  /** What milestone is this sheet at? The {@link Milestone.(name:instance)|name} of a {@link Milestone}. */
   milestone: string;
+  /** A map of {@link Counter} UUID to its current value. */
   counters: Record<string, number>;
+  /** A map of {@link Toggle} UUID to its current state. */
   toggles: Record<string, boolean>;
 
-  constructor(
-    options: {
-      name?: string;
-      milestone?: string;
-      counters?: Record<string, number>;
-      toggles?: Record<string, boolean>;
-    } = {},
-  ) {
+  constructor(options: SheetOptions = {}) {
     this.name = options.name ?? "";
     this.milestone = options.milestone ?? "";
     this.counters = options.counters ?? {};
     this.toggles = options.toggles ?? {};
   }
 
-  static fromJSON(json: any): Sheet {
+  /** Deserialialze a sheet from JSON. */
+  static fromJSON(bb: Buildblazer, json: any): Sheet {
     return new Sheet(json);
   }
 
-  toJSON(): object {
+  /** Serialialze a sheet to JSON. */
+  toJSON(): any {
     return {
       name: this.name,
       milestone: this.milestone,
@@ -157,22 +223,36 @@ export class Sheet {
   }
 }
 
+/** Options for the constructor of {@link Build}. */
 export interface BuildOptions {
+  /** The UUID of this build. The entity created by {@link entityAfterMilestone} will have this ID. */
   id?: string;
+  /** The human-readable name of this build. The entity created by {@link entityAfterMilestone} will have this name. */
   name?: string;
+  /** The version of the system that was loaded from JSON, if this build was deserialized. */
   systemVersion?: number;
+  /** Milestones in this build. */
   milestones?: Milestone[];
+  /** Sheets in this build. */
   sheets?: Sheet[];
 }
 
+/** A build in a given TTRPG system. Tracks all data relevant to a build, and is a top-level import/export of Buildblazer. */
 export abstract class Build {
+  /** The UUID of this build. The entity created by {@link entityAfterMilestone} will have this ID. */
   id: string;
+  /** The human-readable name of this build. The entity created by {@link entityAfterMilestone} will have this name. */
   name: string;
+  /** The version of the system that was loaded from JSON, if this build was deserialized. Otherwise, equal to {@link systemVersion}. */
   loadedSystemVersion: number;
+  /** Milestones in this build. */
   milestones: Milestone[];
+  /** Sheets in this build. */
   sheets: Sheet[];
 
+  /** Get the ID of this build's {@link System}. */
   abstract systemName(): string;
+  /** Get the version number of this build's {@link System}. */
   abstract systemVersion(): number;
 
   constructor(options: BuildOptions = {}) {
@@ -183,7 +263,8 @@ export abstract class Build {
     this.sheets = [...(options.sheets ?? [])];
   }
 
-  toJSON(): object {
+  /** Serialize this build to JSON. */
+  toJSON(): any {
     return {
       id: this.id,
       name: this.name,
@@ -194,8 +275,10 @@ export abstract class Build {
     };
   }
 
+  /** Create a initial version of this build's resultant entity, without any milestones applied. */
   abstract baseEntity(): Entity;
 
+  /** Get an entity with all relevant milestones before and up to the given one applied. */
   entityAfterMilestone(milestone: Milestone): Entity {
     const e = this.baseEntity();
     for (const m of this.milestones) {
@@ -203,5 +286,21 @@ export abstract class Build {
       if (m === milestone) break;
     }
     return e;
+  }
+
+  /**
+   * Get the options you need to pass into this class's constructor to deserialize it from the given JSON.
+   * Subclasses of {@link Build} use this in thier {@link System} definitions.
+   */
+  static optionsFromJSON(bb: Buildblazer, json: any): BuildOptions {
+    return {
+      id: json.id,
+      name: json.name,
+      systemVersion: json.systemVersion,
+      milestones: (json.milestones ?? []).map((m: any) =>
+        Milestone.fromJSON(bb, m),
+      ),
+      sheets: (json.sheets ?? []).map((s: any) => Sheet.fromJSON(bb, s)),
+    };
   }
 }

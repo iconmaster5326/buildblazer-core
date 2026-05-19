@@ -3,10 +3,11 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 import { defineConfig, globalIgnores } from "eslint/config";
 import eslintConfigPrettier from "eslint-config-prettier/flat";
+import tsdoc from "eslint-plugin-tsdoc";
 
 export default defineConfig([
   {
-    plugins: { js: js },
+    plugins: { js: js, tsdoc: tsdoc },
     extends: ["js/recommended"],
     languageOptions: {
       globals: { ...globals.browser, ...globals.node },

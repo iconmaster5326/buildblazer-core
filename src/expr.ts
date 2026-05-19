@@ -2,26 +2,42 @@ import * as ohm from "ohm-js";
 
 import { Entity } from "./entity";
 
+/** A context in which expressions are evaluated. */
 export interface EvalContext {
   rootEntity: Entity;
   currentEntity: Entity;
   uuidMap: Record<string, Entity>;
 }
 
+/** A parsed expression. These can do math, roll dice, and refer to the values of statistics/toggles/etc. */
 export abstract class Expression {
+  /** Evaluate the expression. */
   abstract eval(ctx: EvalContext): number;
+  /** Turn the expression into the nicest possible human-readable form. Replace variables whose values are known, coalesce terms, and so on. */
   abstract simplify(ctx: EvalContext): Expression;
+  /** Is this expression able to be evaluated right now without randomness or variance? This may involve resolving variables, but not roll dice. */
   abstract constant(ctx: EvalContext): boolean;
+  /**
+   * Turn the expression back into a string that can be re-parsed.
+   * @see {@link toStringWithParens}
+   */
   abstract toString(): string;
+  /** The operator precedence of this expression, for {@link toString} purposes. */
   abstract precedence(): number;
 
+  /** Any tags applied to this expression. Tags can be used by some systems for display, category, damage type, etc. purposes. */
   tags: string[] = [];
 
+  /** Add tags to this expression in-place. */
   addTags(...tags: string[]): this {
     this.tags.splice(this.tags.length, 0, ...tags);
     return this;
   }
 
+  /**
+   * Call {@link toString}, but surround it with parentheses if needed to not break operator precedence.
+   * @param outerPrecedence The precedence of the expression calling this method.
+   */
   toStringWithParens(outerPrecedence: number): string {
     const value = this.toString();
     if (outerPrecedence <= this.precedence()) {
@@ -32,7 +48,9 @@ export abstract class Expression {
   }
 }
 
+/** A numeric literal. */
 export class ExprNumber extends Expression {
+  /** The value of this literal. */
   value: number;
 
   constructor(value: number) {
@@ -61,6 +79,7 @@ export class ExprNumber extends Expression {
   }
 }
 
+/** A binary operator type. */
 export enum ExprBinOp {
   ADD = "+",
   SUB = "-",
@@ -77,9 +96,13 @@ export enum ExprBinOp {
   GE = ">=",
 }
 
+/** A binary operator application. */
 export class ExprBin extends Expression {
+  /** The left-hand side operand. */
   lhs: Expression;
+  /** The operator. */
   op: ExprBinOp;
+  /** The right-hand side operand. */
   rhs: Expression;
 
   constructor(lhs: Expression, op: ExprBinOp, rhs: Expression) {
@@ -120,6 +143,7 @@ export class ExprBin extends Expression {
     }
   }
 
+  /** Is this operator communicative? That is, can we freely rearrange operands in a chain of these? */
   communicative(): boolean {
     switch (this.op) {
       case ExprBinOp.ADD:
@@ -132,6 +156,7 @@ export class ExprBin extends Expression {
     }
   }
 
+  /** When we sum, product, etc. a list of terms with this operator, what is the seed value? 0 or 1. */
   reductionSeed(): number {
     switch (this.op) {
       case ExprBinOp.ADD:
@@ -146,6 +171,7 @@ export class ExprBin extends Expression {
     }
   }
 
+  /** Execute the operator on two literal operands. */
   reductionOperation(acc: number, n: number): number {
     switch (this.op) {
       case ExprBinOp.ADD:
@@ -162,6 +188,7 @@ export class ExprBin extends Expression {
     }
   }
 
+  /** What's the opposite operator for add/subtract operations? Otherwise, returns the operator unchanged. */
   negativeOp(): ExprBinOp {
     switch (this.op) {
       case ExprBinOp.ADD:
@@ -319,7 +346,9 @@ export class ExprBin extends Expression {
   }
 }
 
+/** A negation operation. */
 export class ExprNeg extends Expression {
+  /** The right-hand side operand. */
   rhs: Expression;
 
   constructor(rhs: Expression) {
@@ -354,21 +383,35 @@ export class ExprNeg extends Expression {
   }
 }
 
+/** Options for the constructor to {@link ExprDice}. */
 export interface ExprDiceOptions {
+  /** If present, how many dice to actually keep from the dice rolled, preferring the highest dice. */
   keepHighest?: Expression;
+  /** If present, how many dice to actually keep from the dice rolled, preferring the lowest dice. */
   keepLowest?: Expression;
+  /** If present, how many dice to remove from the dice rolled, preferring the highest dice. */
   dropHighest?: Expression;
+  /** If present, how many dice to remove from the dice rolled, preferring the lowest dice. */
   dropLowest?: Expression;
+  /** If true, indicates that a roll of the maximum face should add another die to roll. */
   explode?: boolean;
 }
 
+/** A roll of some dice. */
 export class ExprDice extends Expression {
+  /** The number of dice to roll. */
   nDice: Expression;
+  /** The number of faces on the dice. */
   nFaces: Expression;
+  /** If present, how many dice to actually keep from the dice rolled, preferring the highest dice. */
   keepHighest: Expression | undefined;
+  /** If present, how many dice to actually keep from the dice rolled, preferring the lowest dice. */
   keepLowest: Expression | undefined;
+  /** If present, how many dice to remove from the dice rolled, preferring the highest dice. */
   dropHighest: Expression | undefined;
+  /** If present, how many dice to remove from the dice rolled, preferring the lowest dice. */
   dropLowest: Expression | undefined;
+  /** If true, indicates that a roll of the maximum face should add another die to roll. */
   explode: boolean;
 
   constructor(
@@ -446,9 +489,13 @@ export class ExprDice extends Expression {
   }
 }
 
+/** A conditional epxression. */
 export class ExprIf extends Expression {
+  /** The condition. 0 is false, all else is true. */
   cond: Expression;
+  /** What to return if {@link cond} is true. */
   ifTrue: Expression;
+  /** What to return if {@link cond} is false. */
   ifFalse: Expression;
 
   constructor(cond: Expression, ifTrue: Expression, ifFalse: Expression) {
@@ -501,7 +548,9 @@ export class ExprIf extends Expression {
   }
 }
 
+/** A reference to a variable. */
 export class ExprVar extends Expression {
+  /** The dot-separated parts of this variable. */
   components: string[];
 
   constructor(components: string[]) {
@@ -530,8 +579,11 @@ export class ExprVar extends Expression {
   }
 }
 
+/** A call to a function. */
 export class ExprCall extends Expression {
+  /** The function to call. */
   method: ExprVar;
+  /** The arguments passed to this function. */
   args: Expression[];
 
   constructor(method: ExprVar, args: Expression[]) {
@@ -564,7 +616,8 @@ export class ExprCall extends Expression {
   }
 }
 
-export const exprGrammar = ohm.grammar(String.raw`
+/** The Ohm grammar for the expression language. */
+const exprGrammar = ohm.grammar(String.raw`
 Expression {
   Expr
     = ExprIf
@@ -642,8 +695,10 @@ Expression {
     = (digit* ".")? digit+
 }
 `);
-export const exprSemantics = exprGrammar.createSemantics();
+/** The Ohm semantics for the expression language. */
+const exprSemantics = exprGrammar.createSemantics();
 
+/** A typed version of the "parse" semantic action on Ohm nodes. */
 function parse(expr: ohm.Node): Expression {
   return expr.parse();
 }
@@ -683,6 +738,7 @@ exprSemantics.addOperation("dicePostfix", {
   },
 });
 
+/** Get all the terminal or nonterminal children of a node, eliding all repitions. */
 function nonIteratorChildren(node: ohm.Node): ohm.Node[] {
   if (!node.isIteration()) {
     return [node];
@@ -780,6 +836,7 @@ exprSemantics.addOperation("parse", {
 });
 /* eslint-enable */
 
+/** Parse an expression string and return what the expression means semantically. */
 export function parseExpression(expr: string | ohm.MatchResult): Expression {
   return exprSemantics(
     typeof expr === "string" ? exprGrammar.match(expr) : expr,
