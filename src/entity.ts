@@ -104,7 +104,7 @@ export abstract class Entity {
       id: json.id,
       name: json.name,
       varName: json.varName,
-      children: (json.children ?? []).map(bb.entityFromJSON),
+      children: (json.children ?? []).map((c: any) => bb.entityFromJSON(c)),
       instanceOf: json.instanceOf,
     };
   }
