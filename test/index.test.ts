@@ -5,6 +5,7 @@ import {
   Build,
   ChangeAdd,
   ChangeDel,
+  ChangeMove,
   ChangeSet,
   Milestone,
 } from "../src/build";
@@ -45,6 +46,25 @@ class TestBuild extends Build {
     return 5326;
   }
 }
+
+const BUILDBLAZER = new Buildblazer({
+  systems: [
+    {
+      entities: [
+        {
+          id: "test",
+          deserializer: (bb, json) =>
+            new TestEntity(Entity.optionsFromJSON(bb, json)),
+        },
+      ],
+      id: "test",
+      name: "Test",
+      version: 5326,
+      deserializer: (bb, json) =>
+        new TestBuild(Build.optionsFromJSON(bb, json)),
+    },
+  ],
+});
 
 describe("expressions", () => {
   test("number", () => {
@@ -293,22 +313,24 @@ describe("builds", () => {
   test("apply set change", () => {
     const subject = new TestEntity();
     const object = new TestEntity();
-    const c = new ChangeSet(subject.id, "x", object);
+    const c = new ChangeSet(subject.id, "x", object.toJSON());
 
-    expect(c.apply(subject.uuidMap())).toBe(true);
+    expect(c.apply(BUILDBLAZER, subject.uuidMap())).toBe(true);
     expect(subject).toHaveProperty("x");
-    expect((subject as any).x).toBe(object);
+    expect((subject as any).x).toBeInstanceOf(TestEntity);
+    expect((subject as any).x.id).toBe(object.id);
   });
 
   test("apply add change", () => {
     const subject = new TestEntity();
     (subject as any).x = [];
     const object = new TestEntity();
-    const c = new ChangeAdd(subject.id, "x", object);
+    const c = new ChangeAdd(subject.id, "x", object.toJSON());
 
-    expect(c.apply(subject.uuidMap())).toBe(true);
+    expect(c.apply(BUILDBLAZER, subject.uuidMap())).toBe(true);
     expect((subject as any).x).toHaveLength(1);
-    expect((subject as any).x).toContain(object);
+    expect((subject as any).x[0]).toBeInstanceOf(TestEntity);
+    expect((subject as any).x[0].id).toBe(object.id);
   });
 
   test("apply del change", () => {
@@ -317,7 +339,7 @@ describe("builds", () => {
     (subject as any).x = [object];
     const c = new ChangeDel(subject.id, "x", object.id);
 
-    expect(c.apply(subject.uuidMap())).toBe(true);
+    expect(c.apply(BUILDBLAZER, subject.uuidMap())).toBe(true);
     expect((subject as any).x).toHaveLength(0);
   });
 
@@ -334,8 +356,8 @@ describe("builds", () => {
       name: "Test",
       milestones: [m1, m2],
     });
-    const e1 = b.entityAfterMilestone(m1);
-    const e2 = b.entityAfterMilestone(m2);
+    const e1 = b.entityAfterMilestone(BUILDBLAZER, m1);
+    const e2 = b.entityAfterMilestone(BUILDBLAZER, m2);
 
     expect(e1.id).toBe(id);
     expect(e1.name).toBe("Test");
@@ -366,9 +388,8 @@ describe("stats", () => {
   });
 
   test("from JSON", () => {
-    const bb = new Buildblazer();
     const id = uuid.v4();
-    const s = bb.entityFromJSON({
+    const s = BUILDBLAZER.entityFromJSON({
       id: id,
       name: "Test",
       type: "stat",
@@ -443,9 +464,8 @@ describe("mods", () => {
   });
 
   test("from JSON", () => {
-    const bb = new Buildblazer();
     const id = uuid.v4();
-    const m = bb.entityFromJSON({
+    const m = BUILDBLAZER.entityFromJSON({
       id: id,
       name: "Test",
       type: "mod",
@@ -542,9 +562,8 @@ describe("toggles", () => {
   });
 
   test("from JSON", () => {
-    const bb = new Buildblazer();
     const id = uuid.v4();
-    const t = bb.entityFromJSON({
+    const t = BUILDBLAZER.entityFromJSON({
       id: id,
       name: "Test",
       type: "toggle",
@@ -584,9 +603,8 @@ describe("counters", () => {
   });
 
   test("from JSON", () => {
-    const bb = new Buildblazer();
     const id = uuid.v4();
-    const c = bb.entityFromJSON({
+    const c = BUILDBLAZER.entityFromJSON({
       id: id,
       name: "Test",
       type: "counter",
@@ -602,5 +620,134 @@ describe("counters", () => {
     expect((c as Counter).defaultsTo).toBe("1");
     expect((c as Counter).min).toBe("2");
     expect((c as Counter).max).toBe("3");
+  });
+});
+
+describe("compare", () => {
+  test("name diff", () => {
+    const e1 = new TestEntity({
+      name: "Old Name",
+    });
+    const e2 = new TestEntity({
+      id: e1.id,
+      name: "New Name",
+    });
+    const changes = e1.compare(e2);
+
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toBeInstanceOf(ChangeSet);
+    expect(changes[0].subject).toBe(e1.id);
+    expect(changes[0].property).toBe("name");
+    expect((changes[0] as ChangeSet).value).toBe(e2.name);
+  });
+
+  test("varname diff", () => {
+    const e1 = new TestEntity({
+      varName: "OldName",
+    });
+    const e2 = new TestEntity({
+      id: e1.id,
+      varName: "NewName",
+    });
+    const changes = e1.compare(e2);
+
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toBeInstanceOf(ChangeSet);
+    expect(changes[0].subject).toBe(e1.id);
+    expect(changes[0].property).toBe("varName");
+    expect((changes[0] as ChangeSet).value).toBe(e2.varName);
+  });
+
+  test("child diff", () => {
+    const e1 = new TestEntity({
+      children: [new TestEntity()],
+    });
+    const e2 = new TestEntity({
+      id: e1.id,
+      children: [new TestEntity()],
+    });
+    const changes = e1.compare(e2);
+
+    expect(changes).toHaveLength(2);
+
+    const add = changes.find((c) => c instanceof ChangeAdd) as
+      | ChangeAdd
+      | undefined;
+    expect(add).toBeInstanceOf(ChangeAdd);
+    expect(add?.subject).toBe(e1.id);
+    expect(add?.property).toBe("children");
+    expect(add?.entity).toBe(e2.children[0]);
+
+    const del = changes.find((c) => c instanceof ChangeDel) as
+      | ChangeDel
+      | undefined;
+    expect(del).toBeInstanceOf(ChangeDel);
+    expect(del?.subject).toBe(e1.id);
+    expect(del?.property).toBe("children");
+    expect(del?.entity).toBe(e1.children[0].id);
+  });
+
+  test("child move diff", () => {
+    const c1 = new TestEntity();
+    const c2 = new TestEntity();
+
+    const e1 = new TestEntity({
+      children: [c1, c2],
+    });
+    const e2 = new TestEntity({
+      id: e1.id,
+      children: [c2, c1],
+    });
+    const changes = e1.compare(e2);
+
+    expect(changes).toHaveLength(1);
+
+    const change1 = changes[0];
+    expect(change1).toBeInstanceOf(ChangeMove);
+  });
+
+  test("child insert diff", () => {
+    const c1 = new TestEntity();
+    const c2 = new TestEntity();
+    const c3 = new TestEntity();
+
+    const e1 = new TestEntity({
+      children: [c1, c3],
+    });
+    const e2 = new TestEntity({
+      id: e1.id,
+      children: [c1, c2, c3],
+    });
+    const changes = e1.compare(e2);
+
+    expect(changes).toHaveLength(1);
+
+    const add = changes[0];
+    expect(add).toBeInstanceOf(ChangeAdd);
+  });
+
+  test("child recursive", () => {
+    const c1 = new TestEntity({
+      name: "Old Child",
+    });
+    const c2 = new TestEntity({
+      id: c1.id,
+      name: "New Child",
+    });
+
+    const e1 = new TestEntity({
+      children: [c1],
+    });
+    const e2 = new TestEntity({
+      id: e1.id,
+      children: [c2],
+    });
+    const changes = e1.compare(e2);
+
+    expect(changes).toHaveLength(1);
+
+    const set = changes[0];
+    expect(set).toBeInstanceOf(ChangeSet);
+    expect(set.property).toBe("name");
   });
 });

@@ -2,6 +2,13 @@ import * as uuid from "uuid";
 
 import type { EvalContext } from "./expr";
 import type { Buildblazer } from "./buildblazer";
+import {
+  ChangeAdd,
+  ChangeDel,
+  ChangeMove,
+  ChangeSet,
+  type Change,
+} from "./build";
 
 /** A reference to an entity in a database. */
 export interface DatabaseReference {
@@ -100,5 +107,126 @@ export abstract class Entity {
       children: (json.children ?? []).map(bb.entityFromJSON),
       instanceOf: json.instanceOf,
     };
+  }
+
+  /** Produce the set of changes that would convert the entity array that's in
+   * both {@link before} and {@link after}, named {@link prop}. */
+  static compareEntityArrayProperty(
+    prop: string,
+    before: Entity,
+    after: Entity,
+  ): Change[] {
+    const result: Change[] = [];
+    const beforeProp: Entity[] = (before as any)[prop];
+    const afterProp: Entity[] = (after as any)[prop];
+
+    // calculate index maps
+    const beforeChildMap: Map<string, number> = new Map();
+    let beforeI = 0;
+    for (const child of beforeProp) {
+      beforeChildMap.set(child.id, beforeI);
+      beforeI++;
+    }
+
+    const afterChildMap: Map<string, number> = new Map();
+    let afterI = 0;
+    for (const child of afterProp) {
+      afterChildMap.set(child.id, afterI);
+      afterI++;
+    }
+
+    // handle deletions
+    for (const child of beforeProp) {
+      if (!afterChildMap.has(child.id)) {
+        result.push(new ChangeDel(before.id, prop, child.id));
+      }
+    }
+
+    // handle additions
+    for (let index = afterProp.length - 1; index >= 0; index--) {
+      const afterChild = afterProp[index] as Entity;
+      if (!beforeChildMap.has(afterChild.id)) {
+        const beforeChild = beforeProp[index];
+        let insertIndex: number | undefined = undefined;
+        if (beforeChild) {
+          insertIndex = index;
+        }
+        result.push(new ChangeAdd(before.id, prop, afterChild, insertIndex));
+      }
+    }
+
+    // handle movement not caused by add/dels
+    const replayed = [...beforeProp];
+    for (const change of result) {
+      if (change instanceof ChangeAdd) {
+        if (change.index === undefined) {
+          replayed.push(change.entity);
+        } else {
+          replayed.splice(change.index, 0, change.entity);
+        }
+      } else if (change instanceof ChangeDel) {
+        replayed.splice(
+          replayed.findIndex((e) => e.id === change.entity),
+          1,
+        );
+      } else {
+        throw new Error(`Change type not handled! ${change}`);
+      }
+    }
+
+    let moveIndex = 0;
+    while (moveIndex < replayed.length) {
+      const afterChild = afterProp[moveIndex] as Entity;
+      const replayedChild = replayed[moveIndex] as Entity;
+
+      if (afterChild.id !== replayedChild.id) {
+        const destIndex = afterChildMap.get(replayedChild.id) as number;
+        result.push(
+          new ChangeMove(before.id, prop, replayedChild.id, destIndex),
+        );
+        const [val] = replayed.splice(moveIndex, 1) as [Entity];
+        replayed.splice(destIndex, 0, val);
+        moveIndex = 0;
+      }
+      moveIndex++;
+    }
+
+    // recursively handle changes
+    for (const beforeChild of beforeProp) {
+      const afterChildIndex = afterChildMap.get(beforeChild.id);
+      if (afterChildIndex !== undefined) {
+        const afterChild = afterProp[afterChildIndex] as Entity;
+        result.push(...beforeChild.compare(afterChild));
+      }
+    }
+
+    // we're done
+    return result;
+  }
+
+  /** Produce the set of changes that would convert the literal that's in
+   * both {@link before} and {@link after}, named {@link prop}. */
+  static compareLiteralProperty(
+    prop: string,
+    before: Entity,
+    after: Entity,
+  ): Change[] {
+    const beforeProp: any = (before as any)[prop];
+    const afterProp: any = (after as any)[prop];
+    if (beforeProp === afterProp) {
+      return [];
+    } else {
+      return [new ChangeSet(before.id, prop, afterProp)];
+    }
+  }
+
+  /** Produce the set of changes that would reconstruct the argument given this
+   * entity as a base. */
+  compare(after: Entity): Change[] {
+    return [
+      ...Entity.compareLiteralProperty("name", this, after),
+      ...Entity.compareLiteralProperty("varName", this, after),
+      ...Entity.compareEntityArrayProperty("children", this, after),
+    ];
   }
 }

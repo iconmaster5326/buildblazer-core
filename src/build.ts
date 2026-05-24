@@ -14,44 +14,43 @@ export abstract class Change {
   subject: string;
   /** The internal name of the property to be modified. */
   property: string;
-  /** The argument to be set/added/removed. Type varies based on subclass. */
-  object: any;
 
-  constructor(subject: string, property: string, object: any) {
+  constructor(subject: string, property: string) {
     this.subject = subject;
     this.property = property;
-    this.object = object;
   }
 
   /** The unique ID of the change subclass, used for serialization. */
-  abstract changeType(): "add" | "set" | "del";
+  abstract changeType(): "add" | "set" | "del" | "move";
 
   /**
    * Apply this change to an entity build built up.
    * @param uuidMap The mapping of UUIDs to Entities.
    * @returns Whether or not this application was successful.
    */
-  abstract apply(uuidMap: Record<string, Entity>): boolean;
+  abstract apply(bb: Buildblazer, uuidMap: Record<string, Entity>): boolean;
 
   /** Serialize a change from JSON. */
   static fromJSON(bb: Buildblazer, json: any): Change {
     switch (json.type) {
       case "set":
-        return new ChangeSet(
-          json.subject,
-          json.property,
-          typeof json.object === "object"
-            ? bb.entityFromJSON(json.object)
-            : json.object,
-        );
+        return new ChangeSet(json.subject, json.property, json.value);
       case "add":
         return new ChangeAdd(
           json.subject,
           json.property,
-          bb.entityFromJSON(json.object),
+          json.entity,
+          json.index,
         );
       case "del":
-        return new ChangeDel(json.subject, json.property, json.object);
+        return new ChangeDel(json.subject, json.property, json.entity);
+      case "move":
+        return new ChangeMove(
+          json.subject,
+          json.property,
+          json.entity,
+          json.index,
+        );
       default:
         throw new Error(`Unknown change type '${json.type}'!`);
     }
@@ -63,45 +62,82 @@ export abstract class Change {
       type: this.changeType(),
       subject: this.subject,
       property: this.property,
-      object: this.object,
     };
   }
 }
 
 /**
  * A {@link Change} that sets a property to a given value.
- * {@link object} must be either an {@link Entity}, or of a value type (string, number, boolean, etc).
  */
 export class ChangeSet extends Change {
-  changeType(): "add" | "set" | "del" {
+  value: any;
+
+  constructor(subject: string, property: string, value: any) {
+    super(subject, property);
+    this.value = value;
+  }
+
+  changeType(): "set" {
     return "set";
   }
 
-  apply(uuidMap: Record<string, Entity>): boolean {
-    (uuidMap[this.subject] as any)[this.property] = this.object;
+  apply(bb: Buildblazer, uuidMap: Record<string, Entity>): boolean {
+    let value = this.value;
+    if (typeof value === "object") {
+      value = bb.entityFromJSON(value);
+    }
+    (uuidMap[this.subject] as any)[this.property] = value;
     return true;
+  }
+
+  toJSON(): any {
+    return {
+      ...super.toJSON(),
+      value: this.value,
+    };
   }
 }
 
 /**
  * A {@link Change} that adds an entity to an entity array.
- * {@link object} must be an {@link Entity}.
  */
 export class ChangeAdd extends Change {
-  changeType(): "add" | "set" | "del" {
+  entity: any;
+  index: number | undefined;
+
+  constructor(subject: string, property: string, entity: any, index?: number) {
+    super(subject, property);
+    this.entity = entity;
+    this.index = index;
+  }
+
+  changeType(): "add" {
     return "add";
   }
 
-  apply(uuidMap: Record<string, Entity>): boolean {
-    if (uuidMap[(this.object as Entity).id]) {
-      return false;
-    }
+  apply(bb: Buildblazer, uuidMap: Record<string, Entity>): boolean {
+    if (uuidMap[this.entity.id]) return false;
     let a: Entity[] | undefined = (uuidMap[this.subject] as any)[this.property];
     if (a === undefined) {
       a = (uuidMap[this.subject] as any)[this.property] = [];
     }
-    a.push(this.object);
+
+    const entity = bb.entityFromJSON(this.entity);
+    if (this.index === undefined) {
+      a.push(entity);
+    } else {
+      a.splice(Math.min(a.length, Math.max(0, this.index)), 0, entity);
+    }
+
     return true;
+  }
+
+  toJSON(): any {
+    return {
+      ...super.toJSON(),
+      entity: this.entity,
+      ...(this.index === undefined ? {} : { index: this.index }),
+    };
   }
 }
 
@@ -110,23 +146,78 @@ export class ChangeAdd extends Change {
  * {@link object} must be a string UUID.
  */
 export class ChangeDel extends Change {
-  changeType(): "add" | "set" | "del" {
+  entity: string;
+
+  changeType(): "del" {
     return "del";
   }
 
-  apply(uuidMap: Record<string, Entity>): boolean {
+  constructor(subject: string, property: string, entity: string) {
+    super(subject, property);
+    this.entity = entity;
+  }
+
+  apply(bb: Buildblazer, uuidMap: Record<string, Entity>): boolean {
     const a: Entity[] | undefined = (uuidMap[this.subject] as any)[
       this.property
     ];
-    if (a === undefined) {
-      return false;
-    }
-    const i = a.findIndex((e) => e.id === (this.object as string));
-    if (i === -1) {
-      return false;
-    }
+    if (a === undefined) return false;
+    const i = a.findIndex((e) => e.id === this.entity);
+    if (i === -1) return false;
     a.splice(i, 1);
     return true;
+  }
+
+  toJSON(): any {
+    return {
+      ...super.toJSON(),
+      entity: this.entity,
+    };
+  }
+}
+
+/**
+ * A {@link Change} that moves an entity around from within an entity array.
+ * {@link object} must be the new index.
+ */
+export class ChangeMove extends Change {
+  entity: string;
+  index: number;
+
+  constructor(
+    subject: string,
+    property: string,
+    entity: string,
+    index: number,
+  ) {
+    super(subject, property);
+    this.entity = entity;
+    this.index = index;
+  }
+
+  changeType(): "move" {
+    return "move";
+  }
+
+  apply(bb: Buildblazer, uuidMap: Record<string, Entity>): boolean {
+    const a: Entity[] | undefined = (uuidMap[this.subject] as any)[
+      this.property
+    ];
+    if (a === undefined) return false;
+    const i = a.findIndex((e) => e.id === this.entity);
+    if (i === -1) return false;
+    const [val] = a.splice(i, 1);
+    if (!val) return false;
+    a.splice(this.index, 0, val);
+    return true;
+  }
+
+  toJSON(): any {
+    return {
+      ...super.toJSON(),
+      entity: this.entity,
+      index: this.index,
+    };
   }
 }
 
@@ -157,7 +248,7 @@ export class Milestone {
   /** Deserialize a milestone from JSON. */
   static fromJSON(bb: Buildblazer, json: any): Milestone {
     return new Milestone({
-      ...json,
+      name: json.name,
       changes: (json.changes ?? []).map((c: any) => Change.fromJSON(bb, c)),
     });
   }
@@ -171,9 +262,9 @@ export class Milestone {
   }
 
   /** Builds up the given root entity, applying each change in {@link changes} in sequence. */
-  apply(e: Entity): boolean {
+  apply(bb: Buildblazer, e: Entity): boolean {
     // TODO: log warnings if changes failed
-    return this.changes.map((c) => c.apply(e.uuidMap())).every((x) => x);
+    return this.changes.map((c) => c.apply(bb, e.uuidMap())).every((x) => x);
   }
 }
 
@@ -278,11 +369,21 @@ export abstract class Build {
   /** Create a initial version of this build's resultant entity, without any milestones applied. */
   abstract baseEntity(): Entity;
 
-  /** Get an entity with all relevant milestones before and up to the given one applied. */
-  entityAfterMilestone(milestone: Milestone): Entity {
+  /** Get an entity with all relevant milestones before the given one is applied. */
+  entityBeforeMilestone(bb: Buildblazer, milestone: Milestone): Entity {
     const e = this.baseEntity();
     for (const m of this.milestones) {
-      m.apply(e);
+      if (m === milestone) break;
+      m.apply(bb, e);
+    }
+    return e;
+  }
+
+  /** Get an entity with all relevant milestones before and up to the given one applied. */
+  entityAfterMilestone(bb: Buildblazer, milestone: Milestone): Entity {
+    const e = this.baseEntity();
+    for (const m of this.milestones) {
+      m.apply(bb, e);
       if (m === milestone) break;
     }
     return e;

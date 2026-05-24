@@ -46,14 +46,9 @@ properties:
               - type
               - subject
               - property
-              - object
             properties:
               type:
                 description: The type of change.
-                enum:
-                  - add
-                  - del
-                  - set
               subject:
                 description: The UUID of the entity to alter.
                 type: string
@@ -61,8 +56,55 @@ properties:
               property:
                 description: The name of the property to alter.
                 type: string
-              object:
-                description: The payload data. For "del", the UUID of the entity to remove. For others, the full value to set.
+            oneOf:
+              - title: Change (Set)
+                description: Set a property in an entity to a raw value.
+                required:
+                  - value
+                properties:
+                  type:
+                    const: set
+                  value:
+                    description: The raw value or entity to directly set the property to.
+              - title: Change (Add)
+                description: Insert an entity into an entity list.
+                required:
+                  - entity
+                properties:
+                  type:
+                    const: add
+                  entity:
+                    description: The entity to insert into the list.
+                    type: object
+                  index:
+                    description: If not the end of the list, where to insert?
+                    oneOf:
+                      - type: "null"
+                      - type: integer
+              - title: Change (Move)
+                description: Move an entity around in an entity list.
+                required:
+                  - entity
+                  - index
+                properties:
+                  type:
+                    const: move
+                  entity:
+                    description: The UUID of the entity to move.
+                    type: string
+                  index:
+                    description: The new index of the entity.
+                    type: integer
+              - title: Change (Delete)
+                description: Delete an entity from an entity list.
+                required:
+                  - entity
+                properties:
+                  type:
+                    const: del
+                  entity:
+                    description: The UUID of the entity to delete.
+                    type: string
   sheets:
     description: The sheets for this character.
     type: array

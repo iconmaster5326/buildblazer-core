@@ -1,3 +1,4 @@
+import type { Change } from "./build";
 import type { Buildblazer } from "./buildblazer";
 import { Entity, type EntityOptions } from "./entity";
 import {
@@ -117,5 +118,15 @@ export class Modifier extends Entity {
       stat: json.stat,
       value: json.value,
     });
+  }
+
+  compare(after: Modifier): Change[] {
+    return [
+      ...super.compare(after),
+      ...Entity.compareLiteralProperty("stat", this, after),
+      ...Entity.compareLiteralProperty("op", this, after),
+      ...Entity.compareLiteralProperty("value", this, after),
+      ...Entity.compareLiteralProperty("condition", this, after),
+    ];
   }
 }

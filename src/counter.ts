@@ -1,3 +1,4 @@
+import type { Change } from "./build";
 import type { Buildblazer } from "./buildblazer";
 import { Entity, type EntityOptions } from "./entity";
 import type { SystemEntity } from "./system";
@@ -58,5 +59,14 @@ export class Counter extends Entity {
       max: json.max,
       min: json.min,
     });
+  }
+
+  compare(after: Counter): Change[] {
+    return [
+      ...super.compare(after),
+      ...Entity.compareLiteralProperty("defaultsTo", this, after),
+      ...Entity.compareLiteralProperty("min", this, after),
+      ...Entity.compareLiteralProperty("max", this, after),
+    ];
   }
 }

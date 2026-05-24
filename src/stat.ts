@@ -1,3 +1,4 @@
+import type { Change } from "./build";
 import type { Buildblazer } from "./buildblazer";
 import { Entity, type EntityOptions } from "./entity";
 import { Expression, parseExpression, type EvalContext } from "./expr";
@@ -84,5 +85,12 @@ export class Statistic extends Entity {
       ...Entity.optionsFromJSON(bb, json),
       base: json.base,
     });
+  }
+
+  compare(after: Statistic): Change[] {
+    return [
+      ...super.compare(after),
+      ...Entity.compareLiteralProperty("base", this, after),
+    ];
   }
 }

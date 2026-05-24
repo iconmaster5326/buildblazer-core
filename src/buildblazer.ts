@@ -42,7 +42,7 @@ export class Buildblazer {
 
   /** Deserialize a subclass of {@link Build} from JSON. */
   buildFromJSON(json: any): Build {
-    const t: string = json["system"];
+    const t: string = json.system;
     const handler = this.systems[t]?.deserializer;
     if (handler === undefined) {
       throw new Error(`Unknown system '${t}'!`);
@@ -52,7 +52,7 @@ export class Buildblazer {
 
   /** Deserialize a subclass of {@link Entity} from JSON. */
   entityFromJSON(json: any): Entity {
-    const t: string = json["type"];
+    const t: string = json.type;
     const handler = this.entityTypes[t]?.deserializer;
     if (handler === undefined) {
       throw new Error(`Unknown entity type '${t}'!`);
