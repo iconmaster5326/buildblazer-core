@@ -151,7 +151,9 @@ export abstract class Entity {
         if (beforeChild) {
           insertIndex = index;
         }
-        result.push(new ChangeAdd(before.id, prop, afterChild, insertIndex));
+        result.push(
+          new ChangeAdd(before.id, prop, afterChild.toJSON(), insertIndex),
+        );
       }
     }
 
@@ -228,5 +230,17 @@ export abstract class Entity {
       ...Entity.compareLiteralProperty("varName", this, after),
       ...Entity.compareEntityArrayProperty("children", this, after),
     ];
+  }
+
+  descendant(id: string): Entity | undefined {
+    for (const child of this.children) {
+      const result = child.descendantOrSelf(id);
+      if (result) return result;
+    }
+  }
+
+  descendantOrSelf(id: string): Entity | undefined {
+    if (this.id === id) return this;
+    return this.descendant(id);
   }
 }

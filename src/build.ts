@@ -206,9 +206,23 @@ export class ChangeMove extends Change {
     if (a === undefined) return false;
     const i = a.findIndex((e) => e.id === this.entity);
     if (i === -1) return false;
+
+    // do the move
     const [val] = a.splice(i, 1);
     if (!val) return false;
     a.splice(this.index, 0, val);
+
+    // remove nulls
+    let p = 0;
+    for (let i = 0; i < a.length; i++) {
+      const entity = a[i];
+      if (entity) {
+        a[p++] = entity;
+      }
+    }
+    a.length = p;
+
+    // return
     return true;
   }
 
